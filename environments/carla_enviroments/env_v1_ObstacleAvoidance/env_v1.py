@@ -18,42 +18,89 @@ import math
 
 class ObstacleAvoidanceScenario(carla_base):
     def __init__(self):
-        carla_base.__init__(self)
-
-        if env_v1_config.fix_vehicle_pos:
-            ## using predefine vehicles position
-            self.vehicles_pos = np.load(env_v1_config.vehicles_pos_file)['pos']
+        try:
+            carla_base.__init__(self)
+        except:
+            raise RuntimeError('carla_base init fails...')
         else:
-            ## random generate vehicles position
-            self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(5, 10))
+            if env_v1_config.fix_vehicle_pos:
+                ## using predefine vehicles position
+                self.vehicles_pos = np.load(env_v1_config.vehicles_pos_file)['pos']
+            else:
+                ## random generate vehicles position
+                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(5, 10))
 
-        self.start_synchronous_mode()
+            self.start_synchronous_mode()
 
     def step(self, action):
-        pass
+        """conduct action in env
+        Args:
+            action: an idx
+        """
+        # --- conduct action and holding a while--- #
+        action = env_v1_config.actions[action]
+        self.ego.apply_control(carla.VehicleControl(throttle=action[0],
+                                                    steer=action[1], brake=action[2]))
+        self.wait_carla_runing(time=env_v1_config.action_holding_time)
+
+        # -- next state -- #
+        state = self.__get_env_state()
+
+        # --- reward --- # forward distance, velocity and center pos
+        forward_distance = state[0] - self.__ego_init_forward_pos
+        velocity = math.sqrt(state[6]**2 + state[7]**2 + 1e-8)
+        lateral_pos = state[1]
+        reward = self.__get_reward_v1(forward_distance=forward_distance, velocity=velocity,
+                                      lateral_pos=lateral_pos)
 
     def reset(self):
         """reset the world"""
         world_ops.destroy_all_actors(self.world)
-        self.__wait_for_response()
         self.__respawn_vehicles()
         self.__reattach_sensors()
 
         ## Waiting for the vehicles to land on the ground
-        time_elapse = 0.
-        while True:
-            time_elapse += self.__wait_for_response()
-            if time_elapse > 0.8:
-                break
+        self.wait_carla_runing(time=0.8)
 
-    def start_synchronous_mode(self):
-        """carla synchoronous mode"""
-        self.world.apply_settings(carla.WorldSettings(no_rendering_mode=False,
-                                                      synchronous_mode=True))
+        # -- reset some var -- #
+        self.__ego_init_forward_pos = self.ego.get_location().x
+        return self.__get_env_state()   # return the init state
 
-    def close_synchronous_mode(self):
-        self.world.apply_settings(carla.WorldSettings(no_rendering_mode=False,
-                                                      synchronous_mode=False))
+    def __get_reward_v1(self, **states):
+        reward = 0.
+
+        # -- illegal end -- #
+        if self.__is_illegal_done():
+            reward -= 2.
+
+        # -- forward distance -- #
+        r_f = self.__gaussian_1d(x=states['forward_distance'], mean=155., std=10000., max=10., bias=0.)
+        logger.info('r_f:' + str(r_f))
+        reward += r_f
+
+        # --- velocity --- #
+        r_v = self.__gaussian_1d(x=states['velocity'], mean=10., std=4., max=0.5, bias=0.)
+        logger.info('r_v:' + str(r_v))
+        reward += r_v
+
+        # -- lateral center -- #
+        # todo
+        return reward
+
+    def __gaussian_1d(self, x, mean, std, max, bias):
+        def norm(x, mu, sigma):
+            """normal gaussian function
+            """
+            # print(sigma)
+            mu = np.array(mu)
+            sigma = np.array(sigma)
+            x = np.array(x)
+            pdf = np.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
+            return pdf
+
+        pdf = norm(x=x, mu=mean, sigma=std) - norm(x=bias, mu=mean, sigma=std)  ## raw gaussian - bias
+        pdf = pdf / (norm(x=mean, mu=mean, sigma=std)- norm(x=bias, mu=mean, sigma=std)) * max
+        return pdf
 
     def __get_env_state(self):
         def get_ego_state(ego):
@@ -73,12 +120,13 @@ class ObstacleAvoidanceScenario(carla_base):
 
         def get_obstacles_state(ego, obstacles):
             """只记录位置在ego之前，并且距离ego最近的，左右两车道各一个障碍物的位置及大小"""
+            # ---- 获取左右车道线离ego最近的车辆（考虑范围为没有超过障碍物3.8m以上的所有） ----- #
             ego_location = ego.get_location()
             left_obstacle = None
             right_obstacle = None
             for obstacle in obstacles:
                 obstacle_location = obstacle.get_location()
-                if obstacle_location.x - ego_location.x > -2.:    ##若ego没有超过障碍物2.m以上, 则需要考虑其影响
+                if obstacle_location.x - ego_location.x > -3.8:    ##若ego没有超过障碍物3.8m以上, 则需要考虑其影响
                     if not left_obstacle or not right_obstacle:
                         if abs(obstacle_location.y - 204.) <= abs(obstacle_location.y - 207.):
                             left_obstacle = obstacle
@@ -96,7 +144,9 @@ class ObstacleAvoidanceScenario(carla_base):
                             current_right2ego_dist = (ego_location.x - right_obstacle_location.x) ** 2 + (ego_location.y - right_obstacle_location.y) ** 2
                             if obstacle2ego_dist <= current_right2ego_dist:
                                 right_obstacle = obstacle
+            # ---- 获取左右车道线离ego最近的车辆（考虑范围为没有超过障碍物3.8m以上的所有） ----- #
 
+            # --- 若没有，则默认0 ---- #
             if not left_obstacle:
                 left_obstacle_location = [0., 0., 0.]   ## cause zero make nothing change
             else:
@@ -124,9 +174,9 @@ class ObstacleAvoidanceScenario(carla_base):
         obstacles_state = get_obstacles_state(self.ego, self.obstacles)
         lateral_state = get_lateral_limitation(self.ego)
 
-        logger.info('ego_state -- ' + str(ego_state))
-        logger.info('obstacles_state -- ' + str(obstacles_state))
-        logger.info('lateral_state -- ' + str(lateral_state))
+        # logger.info('ego_state -- ' + str(ego_state))
+        # logger.info('obstacles_state -- ' + str(obstacles_state))
+        # logger.info('lateral_state -- ' + str(lateral_state))
 
         state = ego_state + obstacles_state + lateral_state
         return np.array(state)
@@ -146,11 +196,11 @@ class ObstacleAvoidanceScenario(carla_base):
                 self.ego = world_ops.try_spawn_random_vehicle_at(world=self.world, transform=transform,
                                                                  role_name='ego', autopilot=False,
                                                                  vehicle_type='vehicle.tesla.model3')
-                self.__wait_for_response()
+                self.wait_for_response()
             else:
                 obstacle = world_ops.try_spawn_random_vehicle_at(world=self.world, transform=transform,
                                                                   role_name='other', autopilot=False)
-                self.__wait_for_response()
+                self.wait_for_response()
                 obstacles.append(obstacle)
         self.obstacles = obstacles
 
@@ -161,12 +211,6 @@ class ObstacleAvoidanceScenario(carla_base):
         # env_v1_config.invasion_sensor_config['attach_to'] = self.ego
         # self.lane_invasion_sensor = sensor_ops.lane_invasion_query(self.world, env_v1_config.invasion_sensor_config)
         pass
-
-    def __wait_for_response(self):
-        self.world.tick()
-        elapse_time = self.world.wait_for_tick()
-        # logger.info('respond time consumption %f'%(round(ts.delta_seconds, 6)))
-        return elapse_time.delta_seconds
 
     def __lane_invasion(self):
         """imitate the lane invasion sensor"""
@@ -179,9 +223,18 @@ class ObstacleAvoidanceScenario(carla_base):
     def __print_pos(self):
         logger.info(str(self.ego.get_location()))
 
+    def __is_finish_game(self):
+        """judge agent whether finish game"""
+        location = self.ego.get_location()
+        return True if location.x >= 155. else False
+
+    def __is_illegal_done(self):
+        """ judge whether lane invasion or collision"""
+        return self.__lane_invasion() or self.collision_sensor.get()
+
     def __is_done(self):
         """query whether the game done"""
-        return self.__lane_invasion() or self.collision_sensor.get()
+        return self.__is_finish_game() or self.__lane_invasion() or self.collision_sensor.get()
 
     def random_action_test_v1(self):
         """ test script, non-syntronic mode
@@ -218,18 +271,23 @@ class ObstacleAvoidanceScenario(carla_base):
         done = False
 
         # --- do action ---#
-        self.ego.apply_control(carla.VehicleControl(throttle=0.1,
+        self.ego.apply_control(carla.VehicleControl(throttle=1.,
                                                     steer=0., brake=0.))
-        action_time_elapse = 0.
-        while True:
-            action_time_elapse += self.__wait_for_response()
-            if action_time_elapse >= env_v1_config.action_holding_time:
-                break
+        # ---- action holding ---- #
+        self.wait_carla_runing(time=env_v1_config.action_holding_time)
 
         # ---- get state ---- #
         state = self.__get_env_state()
-        done = self.__is_done()
 
+        # --- reward --- # forward distance, velocity and center pos
+        forward_distance = state[0] - self.__ego_init_forward_pos
+        velocity = math.sqrt(state[6] ** 2 + state[7] ** 2 + 1e-8)
+        lateral_pos = state[1]
+        reward = self.__get_reward_v1(forward_distance=forward_distance, velocity=velocity,
+                                      lateral_pos=lateral_pos)
+        logger.info('reward - %f'%(reward))
+
+        done = self.__is_done()
         return state, done
 
 if __name__ == '__main__':
