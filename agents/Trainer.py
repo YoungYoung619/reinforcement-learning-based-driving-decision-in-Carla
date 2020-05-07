@@ -18,6 +18,8 @@ class Trainer(object):
         self.colors = ["red", "blue", "green", "orange", "yellow", "purple"]
         self.colour_ix = 0
 
+        self.raw_hyperparameters = config.hyperparameters
+
     def create_agent_to_agent_group_dictionary(self):
         """Creates a dictionary that maps an agent to their wider agent group"""
         agent_to_agent_group_dictionary = {
@@ -98,23 +100,29 @@ class Trainer(object):
         agent_name = agent_class.agent_name
         agent_group = self.agent_to_agent_group[agent_name]
         agent_round = 1
-        for run in range(self.config.runs_per_agent):
-            agent_config = copy.deepcopy(self.config)
+        for run in range(self.config.runs_per_agent):   ## 每个agent跑几次，默认1
+            # agent_config = copy.deepcopy(self.config)
+            agent_config = self.config
 
+            ## 查询跑的游戏环境是否具有目标分数
             if self.environment_has_changeable_goals(agent_config.environment) and self.agent_cant_handle_changeable_goals_without_flattening(agent_name):
                 print("Flattening changeable-goal environment for agent {}".format(agent_name))
                 agent_config.environment = gym.wrappers.FlattenDictWrapper(agent_config.environment,
                                                                            dict_keys=["observation", "desired_goal"])
 
             if self.config.randomise_random_seed: agent_config.seed = random.randint(0, 2**32 - 2)
-            agent_config.hyperparameters = agent_config.hyperparameters[agent_group]
+            agent_config.hyperparameters = self.raw_hyperparameters[agent_group]
             print("AGENT NAME: {}".format(agent_name))
             print("\033[1m" + "{}.{}: {}".format(agent_number, agent_round, agent_name) + "\033[0m", flush=True)
             agent = agent_class(agent_config)
             self.environment_name = agent.environment_title
             print(agent.hyperparameters)
             print("RANDOM SEED " , agent_config.seed)
+
+            ##----------- 跑游戏， 训练agent ------##
             game_scores, rolling_scores, time_taken = agent.run_n_episodes()
+            ##----------- 跑游戏， 训练agent ------##
+
             print("Time taken: {}".format(time_taken), flush=True)
             self.print_two_empty_lines()
             agent_results.append([game_scores, rolling_scores, len(rolling_scores), -1 * max(rolling_scores), time_taken])

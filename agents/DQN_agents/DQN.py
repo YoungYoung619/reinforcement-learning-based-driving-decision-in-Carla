@@ -4,6 +4,7 @@ import torch
 import random
 import torch.optim as optim
 import torch.nn.functional as F
+import torch.nn as nn
 import numpy as np
 from agents.Base_Agent import Base_Agent
 from exploration_strategies.Epsilon_Greedy_Exploration import Epsilon_Greedy_Exploration
@@ -16,8 +17,8 @@ class DQN(Base_Agent):
         Base_Agent.__init__(self, config)
         self.memory = Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], config.seed)
         self.q_network_local = self.create_NN(input_dim=self.state_size, output_dim=self.action_size)
-        self.q_network_optimizer = optim.Adam(self.q_network_local.parameters(),
-                                              lr=self.hyperparameters["learning_rate"], eps=1e-4)
+        self.q_network_optimizer = optim.SGD(self.q_network_local.parameters(),
+                                              lr=self.hyperparameters["learning_rate"], weight_decay=5e-4)
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
 
     def reset_game(self):
@@ -27,6 +28,8 @@ class DQN(Base_Agent):
     def step(self):
         """Runs a step within a game including a learning step if required"""
         while not self.done:
+            print('state:', self.state)
+            # self.environment.render()
             self.action = self.pick_action()
             self.conduct_action(self.action)
             if self.time_for_q_network_to_learn():
@@ -52,7 +55,7 @@ class DQN(Base_Agent):
         action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
                                                                                     "turn_off_exploration": self.turn_off_exploration,
                                                                                     "episode_number": self.episode_number})
-        self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
+        # self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
         return action
 
     def learn(self, experiences=None):
@@ -71,7 +74,9 @@ class DQN(Base_Agent):
         with torch.no_grad():
             Q_targets = self.compute_q_targets(next_states, rewards, dones)
         Q_expected = self.compute_expected_q_values(states, actions)
-        loss = F.mse_loss(Q_expected, Q_targets)
+        # loss = F.mse_loss(Q_expected, Q_targets)
+
+        loss = nn.MSELoss(size_average=False)(Q_expected, Q_targets)
         return loss
 
     def compute_q_targets(self, next_states, rewards, dones):
@@ -97,7 +102,8 @@ class DQN(Base_Agent):
 
     def locally_save_policy(self):
         """Saves the policy"""
-        torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
+        state = {'q_network_local':self.q_network_local.state_dict()}
+        torch.save(state, "Models/{}_local_network.pt".format(self.agent_name))
 
     def time_for_q_network_to_learn(self):
         """Returns boolean indicating whether enough steps have been taken for learning to begin and there are

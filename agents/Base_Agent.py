@@ -190,12 +190,15 @@ class Base_Agent(object):
             if save_and_print_results: self.save_and_print_result()
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
-        if self.config.save_model: self.locally_save_policy()
+        if self.config.save_model and len(self.rolling_results) > 100:
+            if self.rolling_results[-1] > self.rolling_results[-2]:
+                self.locally_save_policy()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
     def conduct_action(self, action):
         """Conducts an action in the environment"""
         self.next_state, self.reward, self.done, _ = self.environment.step(action)
+        # print('reward:', self.next_state)
         self.total_episode_score_so_far += self.reward
         if self.hyperparameters["clip_rewards"]: self.reward =  max(min(self.reward, 1.0), -1.0)
 
@@ -263,7 +266,11 @@ class Base_Agent(object):
                 new_lr = starting_lr
             for g in optimizer.param_groups:
                 g['lr'] = new_lr
-        if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
+
+            self.logger.info("Learning rate {}".format(new_lr))
+
+    def locally_save_policy(self):
+        raise NotImplementedError
 
     def enough_experiences_to_learn_from(self):
         """Boolean indicated whether there are enough experiences in the memory buffer to learn from"""
@@ -281,6 +288,7 @@ class Base_Agent(object):
         optimizer.zero_grad() #reset gradients to 0
         loss.backward(retain_graph=retain_graph) #this calculates the gradients
         self.logger.info("Loss -- {}".format(loss.item()))
+        print('loss', loss.item())
         if self.debug_mode: self.log_gradient_and_weight_information(network, optimizer)
         if clipping_norm is not None:
             for net in network:
@@ -317,7 +325,7 @@ class Base_Agent(object):
         else: seed = self.config.seed
 
         default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
-                                          "initialiser": "default", "batch_norm": False,
+                                          "initialiser": "he", "batch_norm": False,
                                           "columns_of_data_to_be_embedded": [],
                                           "embedding_dimensions": [], "y_range": ()}
 

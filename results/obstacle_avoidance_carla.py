@@ -16,13 +16,17 @@ from agents.DQN_agents.DDQN import DDQN
 from agents.DQN_agents.DDQN_With_Prioritised_Experience_Replay import DDQN_With_Prioritised_Experience_Replay
 from agents.DQN_agents.DQN import DQN
 from agents.DQN_agents.DQN_With_Fixed_Q_Targets import DQN_With_Fixed_Q_Targets
+from agents.policy_gradient_agents.REINFORCE import REINFORCE
+
+## envs import ##
+from environments.carla_enviroments import env_v1_ObstacleAvoidance
 
 config = Config()
 config.seed = 1
-config.environment = gym.make("CartPole-v0")
-config.num_episodes_to_run = 450
-config.file_to_save_data_results = "C:\my_project\Deep-Reinforcement-Learning-Algorithms-with-PyTorch\\results/data_and_graphs/Cart_Pole_Results_Data.pkl"
-config.file_to_save_results_graph = "C:\my_project\Deep-Reinforcement-Learning-Algorithms-with-PyTorch\\results/data_and_graphs/Cart_Pole_Results_Graph.png"
+config.environment = gym.make("ObstacleAvoidance-v0")
+config.num_episodes_to_run = 2000
+config.file_to_save_data_results = "C:/my_project/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/results/data_and_graphs/carla_obstacle_avoidance/data.pkl"
+config.file_to_save_results_graph = "C:/my_project/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/results/data_and_graphs/carla_obstacle_avoidance/data.png"
 config.show_solution_score = False
 config.visualise_individual_results = True
 config.visualise_overall_agent_results = True
@@ -36,21 +40,21 @@ config.save_model = True
 
 config.hyperparameters = {
     "DQN_Agents": {
-        "learning_rate": 0.01,
-        "batch_size": 256,
+        "learning_rate": 1e-2*10.,
+        "batch_size": 32,
         "buffer_size": 20000,
         "epsilon": 1.0,
-        "epsilon_decay_rate_denominator": 1,
+        "epsilon_decay_rate_denominator": 1.0,
         "discount_rate": 0.99,
         "tau": 0.01,
         "alpha_prioritised_replay": 0.6,
         "beta_prioritised_replay": 0.1,
         "incremental_td_error": 1e-8,
         "update_every_n_steps": 1,
-        "linear_hidden_units": [30, 15],
+        "linear_hidden_units": [24, 48, 24],
         "final_layer_activation": "None",
         "batch_norm": False,
-        "gradient_clipping_norm": 0.7,
+        "gradient_clipping_norm": 0.1,
         "learning_iterations": 1,
         "clip_rewards": False
     },
@@ -68,7 +72,7 @@ config.hyperparameters = {
     },
     "Policy_Gradient_Agents": {
         "learning_rate": 0.05,
-        "linear_hidden_units": [20, 20],
+        "linear_hidden_units": [64, 128, 64, 32],
         "final_layer_activation": "SOFTMAX",
         "learning_iterations_per_round": 5,
         "discount_rate": 0.99,
@@ -135,14 +139,9 @@ config.hyperparameters = {
 }
 
 if __name__ == "__main__":
-    # AGENTS = [DDQN, Dueling_DDQN, DQN, DQN_With_Fixed_Q_Targets,
-    #           DDQN_With_Prioritised_Experience_Replay, A2C, A3C ]
+    # AGENTS = [SAC_Discrete, DDQN, Dueling_DDQN, DQN, DQN_With_Fixed_Q_Targets,
+    #           DDQN_With_Prioritised_Experience_Replay, A2C, PPO, A3C ]
     AGENTS = [DQN_With_Fixed_Q_Targets]
     trainer = Trainer(config, AGENTS)
     trainer.run_games_for_agents()
-
-
-
-
-
-
+    pass

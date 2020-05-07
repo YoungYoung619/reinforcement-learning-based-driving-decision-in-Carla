@@ -15,7 +15,7 @@ class REINFORCE(Base_Agent):
 
     def reset_game(self):
         """Resets the game information so we are ready to play a new episode"""
-        self.state = self.environment.reset_environment()
+        self.state = self.environment.reset()
         self.next_state = None
         self.action = None
         self.reward = None
@@ -43,7 +43,7 @@ class REINFORCE(Base_Agent):
         action, log_probabilities = self.pick_action_and_get_log_probabilities()
         self.store_log_probabilities(log_probabilities)
         self.store_action(action)
-        self.conduct_action()
+        self.conduct_action(action)
 
     def pick_action_and_get_log_probabilities(self):
         """Picks actions and then calculates the log probabilities of the actions it picked given the policy"""

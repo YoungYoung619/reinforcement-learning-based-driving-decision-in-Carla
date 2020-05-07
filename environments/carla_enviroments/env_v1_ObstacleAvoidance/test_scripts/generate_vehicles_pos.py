@@ -29,8 +29,8 @@ def generate_vehicles_pos(n_vehicles):
 
 
 if __name__ == '__main__':
-    for n_vehicle in range(4, 9):
+    for n_vehicle in range(4, 20):
         vehicle_pos = generate_vehicles_pos(n_vehicle)
-        npz_path = 'C:\my_project\Deep-Reinforcement-Learning-Algorithms-with-PyTorch\environments\carla_enviroments\env_v1_ObstacleAvoidance\saves\positions\\%d_vehicle_positions.npz'%(n_vehicle)
+        npz_path = '..\saves\positions\\%d_vehicle_positions.npz'%(n_vehicle)
         np.savez(npz_path, pos=vehicle_pos)
         pass

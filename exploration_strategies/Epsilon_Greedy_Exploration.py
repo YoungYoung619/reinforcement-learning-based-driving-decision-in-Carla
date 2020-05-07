@@ -14,6 +14,7 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
         else:
             self.exploration_cycle_episodes_length = None
 
+        ## 这个random_episodes_to_run决定了多少个episode以内为随机选择动作执行， 默认0
         if "random_episodes_to_run" in self.config.hyperparameters.keys():
             self.random_episodes_to_run = self.config.hyperparameters["random_episodes_to_run"]
             print("Running {} random episodes".format(self.random_episodes_to_run))
@@ -35,7 +36,7 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
 
         if (random.random() > epsilon or turn_off_exploration) and (episode_number >= self.random_episodes_to_run):
             return torch.argmax(action_values).item()
-        return  np.random.randint(0, action_values.shape[1])
+        return np.random.randint(0, action_values.shape[1])
 
     def get_updated_epsilon_exploration(self, action_info, epsilon=1.0):
         """Gets the probability that we just pick a random action. This probability decays the more episodes we have seen"""
@@ -44,6 +45,7 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
 
         if self.exploration_cycle_episodes_length is None:
             epsilon = epsilon / (1.0 + (episode_number / epsilon_decay_denominator))
+            # epsilon = 0.1
         else:
             epsilon = self.calculate_epsilon_with_cyclical_strategy(episode_number)
         return epsilon

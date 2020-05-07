@@ -1,4 +1,5 @@
 import copy
+import torch
 
 from agents.Base_Agent import Base_Agent
 from agents.DQN_agents.DQN import DQN
@@ -21,3 +22,9 @@ class DQN_With_Fixed_Q_Targets(DQN):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
         Q_targets_next = self.q_network_target(next_states).detach().max(1)[0].unsqueeze(1)
         return Q_targets_next
+
+    def locally_save_policy(self):
+        state = {'q_network_local': self.q_network_local.state_dict(),
+                 'q_network_target': self.q_network_target.state_dict()}
+        torch.save(state, "Models/{}_network.pt".format(self.agent_name))
+        self.logger.info('Model save success...')

@@ -19,6 +19,7 @@ class carla_base(gym.Env):
             logger.info('carla connecting...')
             client.set_timeout(2.0)
             self.world = client.get_world()
+            self.world.apply_settings(carla.WorldSettings(no_rendering_mode=base_config.no_render_mode))
         except:
             raise RuntimeError('carla connection fail...')
         else:
@@ -26,12 +27,12 @@ class carla_base(gym.Env):
 
     def start_synchronous_mode(self):
         """carla synchoronous mode"""
-        self.world.apply_settings(carla.WorldSettings(no_rendering_mode=False,
+        self.world.apply_settings(carla.WorldSettings(no_rendering_mode=base_config.no_render_mode,
                                                       synchronous_mode=True))
 
     def close_synchronous_mode(self):
         """close synchoronous mode"""
-        self.world.apply_settings(carla.WorldSettings(no_rendering_mode=False,
+        self.world.apply_settings(carla.WorldSettings(no_rendering_mode=base_config.no_render_mode,
                                                       synchronous_mode=False))
 
     def wait_carla_runing(self, time):
@@ -49,7 +50,7 @@ class carla_base(gym.Env):
         """
         self.world.tick()
         elapse_time = self.world.wait_for_tick()
-        # logger.info('respond time consumption %f'%(round(ts.delta_seconds, 6)))
+        # logger.info('respond time consumption %f'%(round(elapse_time.delta_seconds, 6)))
         return elapse_time.delta_seconds
 
 if __name__ == '__main__':
