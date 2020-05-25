@@ -37,6 +37,10 @@ config.overwrite_existing_results_file = False
 config.randomise_random_seed = True
 config.save_model = True
 
+config.resume = True
+config.resume_path = ''
+config.backbone_pretrain = True
+
 
 config.hyperparameters = {
     "DQN_Agents": {

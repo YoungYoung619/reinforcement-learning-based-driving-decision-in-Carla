@@ -44,6 +44,7 @@ class Base_Agent(object):
         self.turn_off_exploration = False
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
+        self.best_result = 0
 
     def step(self):
         """Takes a step in the game. This method must be overriden by any agent"""
@@ -170,7 +171,7 @@ class Base_Agent(object):
         self.episode_achieved_goals = []
         self.episode_observations = []
         if "exploration_strategy" in self.__dict__.keys(): self.exploration_strategy.reset()
-        self.logger.info("Reseting game -- New start state {}".format(self.state))
+        # self.logger.info("Reseting game -- New start state {}".format(self.state))
 
     def track_episodes_data(self):
         """Saves the data from the recent episodes"""
@@ -188,11 +189,13 @@ class Base_Agent(object):
             self.reset_game()
             self.step()
             if save_and_print_results: self.save_and_print_result()
+
+            if self.config.save_model and self.episode_number > 100 and self.episode_number % 5 == 0:
+                if self.rolling_results[-1] > self.best_result:
+                    self.best_result = self.rolling_results[-1]
+                    self.locally_save_policy()
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
-        if self.config.save_model and len(self.rolling_results) > 100:
-            if self.rolling_results[-1] > self.rolling_results[-2]:
-                self.locally_save_policy()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
     def conduct_action(self, action):
@@ -260,7 +263,7 @@ class Base_Agent(object):
                 new_lr = starting_lr / 20.0
             elif last_rolling_score > 0.5 * self.average_score_required_to_win:
                 new_lr = starting_lr / 10.0
-            elif last_rolling_score > 0.25 * self.average_score_required_to_win:
+            elif last_rolling_score > 0.35 * self.average_score_required_to_win:
                 new_lr = starting_lr / 2.0
             else:
                 new_lr = starting_lr
@@ -288,7 +291,7 @@ class Base_Agent(object):
         optimizer.zero_grad() #reset gradients to 0
         loss.backward(retain_graph=retain_graph) #this calculates the gradients
         self.logger.info("Loss -- {}".format(loss.item()))
-        print('loss', loss.item())
+        # print('loss', loss.item())
         if self.debug_mode: self.log_gradient_and_weight_information(network, optimizer)
         if clipping_norm is not None:
             for net in network:

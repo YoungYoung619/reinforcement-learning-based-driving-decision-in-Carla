@@ -1,5 +1,12 @@
 import random
 from utilities.logging import logger
+import sys
+from environments.carla_enviroments.carla_config import base_config
+try:
+    sys.path.append(base_config.egg_file)
+except IndexError:
+    pass
+import carla
 
 def try_spawn_random_vehicle_at(world, transform, role_name, autopilot=False, vehicle_type=None):
     if not vehicle_type:
@@ -21,6 +28,8 @@ def try_spawn_random_vehicle_at(world, transform, role_name, autopilot=False, ve
     elif (vehicle is not None) and (not autopilot):
         vehicle.set_autopilot(False)
         # logger.info('spawned a egopilot %r at %s' % (vehicle.type_id, transform.location))
+    vehicle.apply_control(carla.VehicleControl(throttle=0,
+                                        steer=0, brake=1.))
     return vehicle
 
 

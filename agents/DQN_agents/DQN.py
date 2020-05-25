@@ -28,7 +28,7 @@ class DQN(Base_Agent):
     def step(self):
         """Runs a step within a game including a learning step if required"""
         while not self.done:
-            print('state:', self.state)
+            # print('state:', self.state)
             # self.environment.render()
             self.action = self.pick_action()
             self.conduct_action(self.action)

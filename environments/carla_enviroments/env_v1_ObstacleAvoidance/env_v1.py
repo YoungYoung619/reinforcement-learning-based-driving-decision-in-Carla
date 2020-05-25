@@ -56,10 +56,11 @@ class ObstacleAvoidanceScenario(carla_base):
         world_ops.destroy_all_actors(self.world)
         self.__wait_env_running(time=0.5)
         self.__respawn_vehicles()
-        self.__reattach_sensors()
+        self.__wait_env_running(time=0.5)
+        self.reattach_sensors()
 
         ## Waiting for the vehicles to land on the ground
-        self.__wait_env_running(time=0.8)
+        self.__wait_env_running(time=0.5)
 
         # -- reset some var -- #
         self.last_forward_distance = 0.  ## 用以记录上一次状态时的前行距离
@@ -68,8 +69,7 @@ class ObstacleAvoidanceScenario(carla_base):
 
         # step
         self.step_counter = 0
-        return self.__get_env_state()   # return the init state
-
+        return self.get_env_state()   # return the init state
 
     def step(self, action):
         """conduct action in env
@@ -84,7 +84,7 @@ class ObstacleAvoidanceScenario(carla_base):
         self.__wait_env_running(time=env_v1_config.action_holding_time)
 
         # -- next state -- #
-        state = self.__get_env_state()
+        state = self.get_env_state()
 
         # --- reward --- # forward distance, velocity and center pos
         # forward_distance = state[0]
@@ -92,7 +92,7 @@ class ObstacleAvoidanceScenario(carla_base):
         # lateral_pos = state[1]
         # reward = self.__get_reward_v1(forward_distance=forward_distance, velocity=velocity,
         #                               lateral_pos=lateral_pos)
-        reward = 1.
+        reward = self.__get_reward_v1()
         # --reset some var -- #
         # self.last_forward_distance = forward_distance
 
@@ -103,27 +103,27 @@ class ObstacleAvoidanceScenario(carla_base):
 
 
     def __get_reward_v1(self, **states):
-        reward = 0.
-
-        # -- illegal end -- #
-        if self.__is_illegal_done():
-            reward -= 3.
-
-        # -- forward distance -- #
-        r_f_cur = states['forward_distance'] * 10.
-        r_f_last = self.last_forward_distance * 10.
-        r_f = r_f_cur - r_f_last
-        # print('foward_reward:' + str(r_f), 'foward_distance:', states['forward_distance'],
-        #       'last_forward_distance:', self.last_forward_distance)
-        reward += r_f
-        # print('forward_reward:', r_f)
-
-        # --- velocity --- #
-        r_v = self.__gaussian_1d(x=states['velocity'], mean=6., std=4., max=2., bias=0.) - 0.1
-        # logger.info('r_v:' + str(r_v))
-        reward += r_v
-        # print('velocity_reward:', r_v, ',  total_reward:', reward)
-        # -- lateral center -- #
+        # reward = 0.
+        #
+        # # -- illegal end -- #
+        # if self.__is_illegal_done():
+        #     reward -= 3.
+        #
+        # # -- forward distance -- #
+        # r_f_cur = states['forward_distance'] * 10.
+        # r_f_last = self.last_forward_distance * 10.
+        # r_f = r_f_cur - r_f_last
+        # # print('foward_reward:' + str(r_f), 'foward_distance:', states['forward_distance'],
+        # #       'last_forward_distance:', self.last_forward_distance)
+        # reward += r_f
+        # # print('forward_reward:', r_f)
+        #
+        # # --- velocity --- #
+        # r_v = self.__gaussian_1d(x=states['velocity'], mean=6., std=4., max=2., bias=0.) - 0.1
+        # # logger.info('r_v:' + str(r_v))
+        # reward += r_v
+        # # print('velocity_reward:', r_v, ',  total_reward:', reward)
+        # # -- lateral center -- #
         # todo
         return -2. if self.__is_illegal_done() else 1.
 
@@ -142,7 +142,7 @@ class ObstacleAvoidanceScenario(carla_base):
         pdf = pdf / (norm(x=mean, mu=mean, sigma=std)- norm(x=bias, mu=mean, sigma=std)) * max
         return pdf
 
-    def __get_env_state(self):
+    def get_env_state(self):
         def get_ego_state(ego):
             ego_transform = ego.get_transform()
             ego_velocity = ego.get_velocity()
@@ -263,7 +263,7 @@ class ObstacleAvoidanceScenario(carla_base):
 
         if not only_one_vehicle:
             if not env_v1_config.fix_vehicle_pos:
-                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(2, 5))
+                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(8, 12))
 
             obstacles = []
             for idx, vehicle_pos in enumerate(self.vehicles_pos):
@@ -299,7 +299,7 @@ class ObstacleAvoidanceScenario(carla_base):
             self.obstacles = []
 
 
-    def __reattach_sensors(self):
+    def reattach_sensors(self):
         env_v1_config.collision_sensor_config['attach_to'] = self.ego
         self.collision_sensor = sensor_ops.collision_query(self.world, env_v1_config.collision_sensor_config)
 
@@ -385,24 +385,23 @@ class ObstacleAvoidanceScenario(carla_base):
 
         # --- do action ---#
         steer = random.uniform(-1., 1.)
-        self.ego.apply_control(carla.VehicleControl(throttle=1.,
-                                                    steer=steer, brake=0.))
+        self.ego.apply_control(carla.VehicleControl(throttle=0.5,
+                                                    steer=0., brake=0.))
         # ---- action holding ---- #
         self.__wait_env_running(time=env_v1_config.action_holding_time)
 
         # ---- get state ---- #
-        state = self.__get_env_state()
+        state = self.get_env_state()
 
         # --- reward --- # forward distance, velocity and center pos
-        forward_distance = state[0]
-        velocity = state[3]
-        lateral_pos = state[1]
-        reward = self.__get_reward_v1(forward_distance=forward_distance, velocity=velocity,
-                                      lateral_pos=lateral_pos)
+        reward = self.__get_reward_v1()
         logger.info('reward - %f'%(reward))
 
         done = self.__is_done()
         return state, done
+
+    def conduct(self):
+        pass
 
 if __name__ == '__main__':
     scenario =ObstacleAvoidanceScenario()

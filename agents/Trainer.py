@@ -45,7 +45,8 @@ class Trainer(object):
             "HRL": "HRL",
             "Model_HRL": "HRL",
             "DIAYN": "DIAYN",
-            "Dueling DDQN": "DQN_Agents"
+            "Dueling DDQN": "DQN_Agents",
+            "DQN_TWO_EYES": "DQN_Agents"
         }
         return agent_to_agent_group_dictionary
 
@@ -53,6 +54,7 @@ class Trainer(object):
         """Creates a dictionary that maps an agent to a hex color (for plotting purposes)
         See https://en.wikipedia.org/wiki/Web_colors and https://htmlcolorcodes.com/ for hex colors"""
         agent_to_color_dictionary = {
+            "DQN_TWO_EYES": "#DE5D41",
             "DQN": "#0000FF",
             "DQN with Fixed Q Targets": "#1F618D",
             "DDQN": "#2980B9",
