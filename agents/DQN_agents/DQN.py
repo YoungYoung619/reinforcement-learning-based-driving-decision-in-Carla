@@ -1,5 +1,5 @@
 from collections import Counter
-
+import os
 import torch
 import random
 import torch.optim as optim
@@ -34,7 +34,14 @@ class DQN(Base_Agent):
             self.conduct_action(self.action)
             if self.time_for_q_network_to_learn():
                 for _ in range(self.hyperparameters["learning_iterations"]):
-                    self.learn()
+                    try:
+                        self.environment.pause()
+                        # print('pause')
+                        self.learn()
+                        self.environment.resume()
+                        # print('resume')
+                    except:
+                        self.learn()
             self.save_experience()
             self.state = self.next_state #this is to set the state for the next iteration
             self.global_step_number += 1
@@ -52,9 +59,17 @@ class DQN(Base_Agent):
         with torch.no_grad():
             action_values = self.q_network_local(state)
         self.q_network_local.train() #puts network back in training mode
+
+
+        force_explore = self.config.force_explore_mode and self.need_to_force_explore()
+
+        if force_explore:
+            print('explore...')
+
         action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
                                                                                     "turn_off_exploration": self.turn_off_exploration,
-                                                                                    "episode_number": self.episode_number})
+                                                                                    "episode_number": self.episode_number,
+                                                                                    "force_explore":force_explore})
         # self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
         return action
 
@@ -100,11 +115,6 @@ class DQN(Base_Agent):
         Q_expected = self.q_network_local(states).gather(1, actions.long()) #must convert actions to long so can be used as index
         return Q_expected
 
-    def locally_save_policy(self):
-        """Saves the policy"""
-        state = {'q_network_local':self.q_network_local.state_dict()}
-        torch.save(state, "Models/{}_local_network.pt".format(self.agent_name))
-
     def time_for_q_network_to_learn(self):
         """Returns boolean indicating whether enough steps have been taken for learning to begin and there are
         enough experiences in the replay buffer to learn from"""
@@ -119,3 +129,25 @@ class DQN(Base_Agent):
         experiences = self.memory.sample()
         states, actions, rewards, next_states, dones = experiences
         return states, actions, rewards, next_states, dones
+
+    def locally_save_policy(self, best=True, episode=None):
+        if self.agent_name != "DQN":
+            state = {'episode': self.episode_number,
+                     'q_network_local': self.q_network_local.state_dict(),
+                     'q_network_target': self.q_network_target.state_dict()}
+        else:
+            state = {'episode': self.episode_number,
+                     'q_network_local': self.q_network_local.state_dict()}
+
+        model_root = os.path.join('Models', self.agent_name)
+        if not os.path.exists(model_root):
+            os.makedirs(model_root)
+
+        if best:
+            save_name = model_root + "/{}.model".format(self.config.log_base)
+            torch.save(state, save_name)
+            self.logger.info('Model-%s save success...' % (save_name))
+        else:
+            save_name = model_root + "/%s_%d.pt" % (self.config.log_base, self.episode_number)
+            torch.save(state, save_name)
+            self.logger.info('Model-%s save success...' % (save_name))

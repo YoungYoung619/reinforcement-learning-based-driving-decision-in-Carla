@@ -11,6 +11,8 @@ from nn_builder.pytorch.NN import NN
 # from tensorboardX import SummaryWriter
 from torch.optim import optimizer
 
+from copy import deepcopy
+
 class Base_Agent(object):
 
     def __init__(self, config):
@@ -45,6 +47,7 @@ class Base_Agent(object):
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
         self.best_result = 0
+        self.total_episode = 0
 
     def step(self):
         """Takes a step in the game. This method must be overriden by any agent"""
@@ -113,8 +116,10 @@ class Base_Agent(object):
 
     def setup_logger(self):
         """Sets up the logger"""
-        filename = "Training.log"
-        try: 
+        root = os.path.dirname(__file__).split('agents')[0]
+        log_path = os.path.join(root, 'results/training_log')
+        filename = os.path.join(log_path, self.config.log_base + '.log')
+        try:
             if os.path.isfile(filename): 
                 os.remove(filename)
         except: pass
@@ -133,9 +138,14 @@ class Base_Agent(object):
 
     def log_game_info(self):
         """Logs info relating to the game"""
+        need_to_be_log_dict = {}
+        for key, val in self.config.__dict__.items():
+            if key not in ['hyperparameters', 'enviroment']:
+                need_to_be_log_dict[key] = val
+
         for ix, param in enumerate([self.environment_title, self.action_types, self.action_size, self.lowest_possible_episode_score,
                       self.state_size, self.hyperparameters, self.average_score_required_to_win, self.rolling_score_window,
-                      self.device]):
+                      self.device, need_to_be_log_dict]):
             self.logger.info("{} -- {}".format(ix, param))
 
     def set_random_seeds(self, random_seed):
@@ -185,15 +195,19 @@ class Base_Agent(object):
         """Runs game to completion n times and then summarises results and saves model (if asked to)"""
         if num_episodes is None: num_episodes = self.config.num_episodes_to_run
         start = time.time()
+        self.total_episode = num_episodes
         while self.episode_number < num_episodes:
             self.reset_game()
             self.step()
             if save_and_print_results: self.save_and_print_result()
 
-            if self.config.save_model and self.episode_number > 100 and self.episode_number % 5 == 0:
+            if self.config.save_model and len(self.rolling_results) > 100:
                 if self.rolling_results[-1] > self.best_result:
                     self.best_result = self.rolling_results[-1]
-                    self.locally_save_policy()
+                    self.locally_save_policy(best=True, episode=None)
+
+                if self.episode_number % self.config.save_model_freq == 0:
+                    self.locally_save_policy(best=False, episode=self.episode_number)
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
         return self.game_full_episode_scores, self.rolling_results, time_taken
@@ -230,6 +244,8 @@ class Base_Agent(object):
         """Prints out the latest episode results"""
         text = """"\r Episode {0}, Score: {3: .2f}, Max score seen: {4: .2f}, Rolling score: {1: .2f}, Max rolling score seen: {2: .2f}"""
         sys.stdout.write(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
+                                     self.game_full_episode_scores[-1], self.max_episode_score_seen))
+        self.logger.info(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
                                      self.game_full_episode_scores[-1], self.max_episode_score_seen))
         sys.stdout.flush()
 
@@ -272,7 +288,7 @@ class Base_Agent(object):
 
             self.logger.info("Learning rate {}".format(new_lr))
 
-    def locally_save_policy(self):
+    def locally_save_policy(self, best=True, episode=None):
         raise NotImplementedError
 
     def enough_experiences_to_learn_from(self):
@@ -290,16 +306,20 @@ class Base_Agent(object):
         if not isinstance(network, list): network = [network]
         optimizer.zero_grad() #reset gradients to 0
         loss.backward(retain_graph=retain_graph) #this calculates the gradients
-        self.logger.info("Loss -- {}".format(loss.item()))
-        # print('loss', loss.item())
+
+        if self.config.log_loss:
+            self.logger.info("Loss -- {}".format(loss.item()))
+            # print('loss', loss.item())
+
         if self.debug_mode: self.log_gradient_and_weight_information(network, optimizer)
+
         if clipping_norm is not None:
             for net in network:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), clipping_norm) #clip gradients to help stabilise training
+
         optimizer.step() #this applies the gradients
 
     def log_gradient_and_weight_information(self, network, optimizer):
-
         # log weight information
         total_norm = 0
         for name, param in network.named_parameters():
@@ -381,3 +401,33 @@ class Base_Agent(object):
         """Copies model parameters from from_model to to_model"""
         for to_model, from_model in zip(to_model.parameters(), from_model.parameters()):
             to_model.data.copy_(from_model.data.clone())
+
+    def get_std_from_rolling_scores(self):
+        std = None
+        if len(self.rolling_results) >= self.rolling_score_window:
+            std = np.std(self.rolling_results[-1*self.rolling_score_window:])
+            # print('std:', std)
+        return std
+
+    def agent_steady(self):
+        """if the rolling scores tend to be steady, we think the agent is also steady"""
+        std = self.get_std_from_rolling_scores()
+        if std is not None and std <= self.config.force_explore_stare_e:
+            return True
+        else:
+            return False
+
+    def saddle_point_near(self):
+        """if the score_sor_far is bigger than a specific val (usually near to the max rolling score in a fix window size)"""
+        try:
+            if self.total_episode_score_so_far >= self.config.force_explore_rate * max(self.rolling_results[-1*self.rolling_score_window:]):
+                return True
+            else:
+                return False
+        except:
+            return False
+
+    def need_to_force_explore(self):
+        # print('agent steady : ', self.agent_steady())
+        # print('saddle_point_near : ', self.saddle_point_near())
+        return self.agent_steady() and self.saddle_point_near()

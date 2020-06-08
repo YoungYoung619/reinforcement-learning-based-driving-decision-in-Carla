@@ -43,11 +43,16 @@ class DQN_With_Fixed_Q_Targets(DQN):
         Q_targets_next = self.q_network_target(next_states).detach().max(1)[0].unsqueeze(1)
         return Q_targets_next
 
-    def locally_save_policy(self):
-        state = {'q_network_local': self.q_network_local.state_dict(),
+    def locally_save_policy(self, best=True, episode=None):
+        state = {'episode': self.episode_number,
+                 'q_network_local': self.q_network_local.state_dict(),
                  'q_network_target': self.q_network_target.state_dict()}
-        torch.save(state, "Models/DQN_FIX_Q/{}_network.pt".format(self.agent_name))
-        self.logger.info('Model save success...')
+        if best:
+            torch.save(state, "Models/DQN_FIX_Q/{}_network.pt".format(self.agent_name))
+            self.logger.info('Model save success...')
+        else:
+            torch.save(state, "Models/DQN_FIX_Q/%s_network_%d.pt" % (self.agent_name, self.episode_number))
+            self.logger.info('Model save success...')
 
     def load_resume(self, resume_path):
         save = torch.load(resume_path)
@@ -159,6 +164,20 @@ class DQN_With_Fixed_Q_Targets_2_EYE(DQN_With_Fixed_Q_Targets):
         self.q_network_local.load_state_dict(net_dict, strict=True)
         print(f'load keys:{load_dict.keys()}')
         self.logger.info(f'load keys:{load_dict.keys()}')
+
+    def update_learning_rate(self, starting_lr,  optimizer):
+        """Lowers the learning rate according to how close we are to the solution"""
+        if self.episode_number >= self.total_episode / 3:
+            new_lr = starting_lr / 10.
+        elif self.episode_number >= self.total_episode * 2 / 3:
+            new_lr = starting_lr / 100.
+        else:
+            new_lr = starting_lr
+
+        for g in optimizer.param_groups:
+            g['lr'] = new_lr
+
+        self.logger.info("Learning rate {}".format(new_lr))
 
 
 if __name__ == '__main__':

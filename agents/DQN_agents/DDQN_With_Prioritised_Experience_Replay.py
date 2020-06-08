@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from agents.DQN_agents.DDQN import DDQN
 from utilities.data_structures.Prioritised_Replay_Buffer import Prioritised_Replay_Buffer
+import os
 
 class DDQN_With_Prioritised_Experience_Replay(DDQN):
     """A DQN agent with prioritised experience replay"""
@@ -35,3 +36,16 @@ class DDQN_With_Prioritised_Experience_Replay(DDQN):
         loss = torch.mean(loss)
         td_errors = Q_targets.data.cpu().numpy() - Q_expected.data.cpu().numpy()
         return loss, td_errors
+
+    def update_learning_rate(self, starting_lr,  optimizer):
+        """Lowers the learning rate according to how close we are to the solution"""
+        # if self.episode_number >= self.total_episode * 2 / 3:
+        #     new_lr = starting_lr / 10.
+        # elif self.
+        # else:
+        new_lr = starting_lr
+
+        for g in optimizer.param_groups:
+            g['lr'] = new_lr
+
+        self.logger.info("Learning rate {}".format(new_lr))
