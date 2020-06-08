@@ -16,10 +16,10 @@ from copy import deepcopy
 class Base_Agent(object):
 
     def __init__(self, config):
-        self.logger = self.setup_logger()
         self.debug_mode = config.debug_mode
         # if self.debug_mode: self.tensorboard = SummaryWriter()
         self.config = config
+        self.logger = self.setup_logger()
         self.set_random_seeds(config.seed)
         self.environment = config.environment
         self.environment_title = self.get_environment_title()
