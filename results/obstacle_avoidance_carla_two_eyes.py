@@ -25,7 +25,7 @@ from environments.carla_enviroments import env_v1_ObstacleAvoidance
 config = Config()
 config.seed = 1
 config.environment = gym.make("ObstacleAvoidance-v1")
-config.num_episodes_to_run = 2000
+config.num_episodes_to_run = 4000
 config.file_to_save_data_results = "C:/my_project/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/results/data_and_graphs/carla_obstacle_avoidance/data.pkl"
 config.file_to_save_results_graph = "C:/my_project/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/results/data_and_graphs/carla_obstacle_avoidance/data.png"
 config.show_solution_score = False
