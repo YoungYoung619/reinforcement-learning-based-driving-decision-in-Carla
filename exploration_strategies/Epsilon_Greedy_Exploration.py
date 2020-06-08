@@ -26,19 +26,18 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
         action_values = action_info["action_values"]
         turn_off_exploration = action_info["turn_off_exploration"]
         episode_number = action_info["episode_number"]
+        force_explore = action_info['force_explore']
         if turn_off_exploration and not self.notified_that_exploration_turned_off:
             print(" ")
             print("Exploration has been turned OFF")
             print(" ")
             self.notified_that_exploration_turned_off = True
-        epsilon = self.get_updated_epsilon_exploration(action_info)
-
-
+        epsilon = self.get_updated_epsilon_exploration(action_info, force_explore=force_explore)
         if (random.random() > epsilon or turn_off_exploration) and (episode_number >= self.random_episodes_to_run):
             return torch.argmax(action_values).item()
         return np.random.randint(0, action_values.shape[1])
 
-    def get_updated_epsilon_exploration(self, action_info, epsilon=1.0):
+    def get_updated_epsilon_exploration(self, action_info, epsilon=1.0, force_explore=False):
         """Gets the probability that we just pick a random action. This probability decays the more episodes we have seen"""
         episode_number = action_info["episode_number"]
         epsilon_decay_denominator = self.config.hyperparameters["epsilon_decay_rate_denominator"]
@@ -48,7 +47,7 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
             # epsilon = 0.1
         else:
             epsilon = self.calculate_epsilon_with_cyclical_strategy(episode_number)
-        return epsilon
+        return max(epsilon if not force_explore else 1., 0.15)
 
     def calculate_epsilon_with_cyclical_strategy(self, episode_number):
         """Calculates epsilon according to a cyclical strategy"""
