@@ -4,6 +4,7 @@ from os.path import dirname, abspath
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 import gym
+import time
 
 from agents.actor_critic_agents.A2C import A2C
 from agents.DQN_agents.Dueling_DDQN import Dueling_DDQN
@@ -24,9 +25,7 @@ from environments.carla_enviroments import env_v1_ObstacleAvoidance
 config = Config()
 config.seed = 1
 config.environment = gym.make("ObstacleAvoidance-v0")
-config.num_episodes_to_run = 2000
-config.file_to_save_data_results = "C:/my_project/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/results/data_and_graphs/carla_obstacle_avoidance/data.pkl"
-config.file_to_save_results_graph = "C:/my_project/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/results/data_and_graphs/carla_obstacle_avoidance/data.png"
+config.num_episodes_to_run = 500
 config.show_solution_score = False
 config.visualise_individual_results = True
 config.visualise_overall_agent_results = True
@@ -36,26 +35,41 @@ config.use_GPU = True
 config.overwrite_existing_results_file = False
 config.randomise_random_seed = True
 config.save_model = True
+config.log_loss = False
+config.log_base = time.strftime("%Y%m%d%H%M%S", time.localtime())
+config.save_model_freq = 300    ## save model per 300 episodes
 
-config.resume = True
+config.resume = False
 config.resume_path = ''
-config.backbone_pretrain = True
+config.backbone_pretrain = False
+
+config.force_explore_mode = True
+config.force_explore_stare_e = 0.01 ## when the std of rolling score in last 10 window is smaller than this val, start explore mode
+config.force_explore_rate = 0.95 ## only when the current score bigger than 0.8*max(rolling score[-10:]), forece expolre
+
+## data and graphs save dir ##
+data_results_root = os.path.join(os.path.dirname(__file__)+"/data_and_graphs/carla_obstacle_avoidance", config.log_base)
+while os.path.exists(data_results_root):
+    data_results_root += '_'
+os.makedirs(data_results_root)
+config.file_to_save_data_results = os.path.join(data_results_root, "data.pkl")
+config.file_to_save_results_graph = os.path.join(data_results_root, "data.png")
 
 
 config.hyperparameters = {
     "DQN_Agents": {
-        "learning_rate": 1e-2*10.,
-        "batch_size": 32,
+        "learning_rate": 1e-1,
+        "batch_size": 256,
         "buffer_size": 20000,
         "epsilon": 1.0,
-        "epsilon_decay_rate_denominator": 1.0,
-        "discount_rate": 0.99,
+        "epsilon_decay_rate_denominator": 20.,
+        "discount_rate": 0.9,
         "tau": 0.01,
         "alpha_prioritised_replay": 0.6,
         "beta_prioritised_replay": 0.1,
         "incremental_td_error": 1e-8,
         "update_every_n_steps": 1,
-        "linear_hidden_units": [24, 48, 24],
+        "linear_hidden_units": [24, 96, 256, 96, 24],
         "final_layer_activation": "None",
         "batch_norm": False,
         "gradient_clipping_norm": 0.1,
@@ -145,7 +159,7 @@ config.hyperparameters = {
 if __name__ == "__main__":
     # AGENTS = [SAC_Discrete, DDQN, Dueling_DDQN, DQN, DQN_With_Fixed_Q_Targets,
     #           DDQN_With_Prioritised_Experience_Replay, A2C, PPO, A3C ]
-    AGENTS = [DQN_With_Fixed_Q_Targets]
+    AGENTS = [DDQN_With_Prioritised_Experience_Replay]
     trainer = Trainer(config, AGENTS)
     trainer.run_games_for_agents()
     pass
