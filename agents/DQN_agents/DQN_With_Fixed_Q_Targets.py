@@ -43,16 +43,6 @@ class DQN_With_Fixed_Q_Targets(DQN):
         Q_targets_next = self.q_network_target(next_states).detach().max(1)[0].unsqueeze(1)
         return Q_targets_next
 
-    def locally_save_policy(self, best=True, episode=None):
-        state = {'episode': self.episode_number,
-                 'q_network_local': self.q_network_local.state_dict(),
-                 'q_network_target': self.q_network_target.state_dict()}
-        if best:
-            torch.save(state, "Models/DQN_FIX_Q/{}_network.pt".format(self.agent_name))
-            self.logger.info('Model save success...')
-        else:
-            torch.save(state, "Models/DQN_FIX_Q/%s_network_%d.pt" % (self.agent_name, self.episode_number))
-            self.logger.info('Model save success...')
 
     def load_resume(self, resume_path):
         save = torch.load(resume_path)

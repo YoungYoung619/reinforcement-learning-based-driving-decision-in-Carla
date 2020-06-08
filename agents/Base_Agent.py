@@ -96,7 +96,7 @@ class Base_Agent(object):
 
     def get_score_required_to_win(self):
         """Gets average score required to win game"""
-        print("TITLE ", self.environment_title)
+        # print("TITLE ", self.environment_title)
         if self.environment_title == "FetchReach": return -5
         if self.environment_title in ["AntMaze", "Hopper", "Walker2d"]:
             print("Score required to win set to infinity therefore no learning rate annealing will happen")
@@ -201,7 +201,7 @@ class Base_Agent(object):
             self.step()
             if save_and_print_results: self.save_and_print_result()
 
-            if self.config.save_model and len(self.rolling_results) > 100:
+            if self.config.save_model and len(self.rolling_results) > 1:
                 if self.rolling_results[-1] > self.best_result:
                     self.best_result = self.rolling_results[-1]
                     self.locally_save_policy(best=True, episode=None)
@@ -243,11 +243,11 @@ class Base_Agent(object):
     def print_rolling_result(self):
         """Prints out the latest episode results"""
         text = """"\r Episode {0}, Score: {3: .2f}, Max score seen: {4: .2f}, Rolling score: {1: .2f}, Max rolling score seen: {2: .2f}"""
-        sys.stdout.write(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
-                                     self.game_full_episode_scores[-1], self.max_episode_score_seen))
+        # sys.stdout.write(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
+        #                              self.game_full_episode_scores[-1], self.max_episode_score_seen))
         self.logger.info(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
                                      self.game_full_episode_scores[-1], self.max_episode_score_seen))
-        sys.stdout.flush()
+        # sys.stdout.flush()
 
     def show_whether_achieved_goal(self):
         """Prints out whether the agent achieved the environment target goal"""

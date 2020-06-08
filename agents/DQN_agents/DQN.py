@@ -9,6 +9,7 @@ import numpy as np
 from agents.Base_Agent import Base_Agent
 from exploration_strategies.Epsilon_Greedy_Exploration import Epsilon_Greedy_Exploration
 from utilities.data_structures.Replay_Buffer import Replay_Buffer
+import glob
 
 class DQN(Base_Agent):
     """A deep Q learning agent"""
@@ -139,15 +140,19 @@ class DQN(Base_Agent):
             state = {'episode': self.episode_number,
                      'q_network_local': self.q_network_local.state_dict()}
 
-        model_root = os.path.join('Models', self.agent_name)
+        model_root = os.path.join('Models', self.agent_name, self.config.log_base)
         if not os.path.exists(model_root):
             os.makedirs(model_root)
 
         if best:
-            save_name = model_root + "/{}.model".format(self.config.log_base)
+            last_best_file = glob.glob(os.path.join(model_root, 'rolling_score*'))
+            if last_best_file:
+                os.remove(last_best_file[0])
+
+            save_name = model_root + "/rolling_score_%.4f.model"%(self.rolling_results[-1])
             torch.save(state, save_name)
             self.logger.info('Model-%s save success...' % (save_name))
         else:
-            save_name = model_root + "/%s_%d.pt" % (self.config.log_base, self.episode_number)
+            save_name = model_root + "/%s_%d.model" % (self.agent_name, self.episode_number)
             torch.save(state, save_name)
             self.logger.info('Model-%s save success...' % (save_name))
