@@ -31,13 +31,13 @@ class ObstacleAvoidanceScenarioTwoEyes(ObstacleAvoidanceScenario):
 
         left_camera_config = {'data_type': 'sensor.camera.rgb', 'image_size_x': env_v1_two_eyes_config.img_size[0],
                          'image_size_y': env_v1_two_eyes_config.img_size[1], 'fov': 110, 'sensor_tick': 0.02,
-                         'transform': carla.Transform(carla.Location(x=0.4, y=-0.4, z=1.4), carla.Rotation(yaw=-25.)),
+                         'transform': carla.Transform(carla.Location(x=0.4, y=-0.4, z=2), carla.Rotation(yaw=-25., pitch=-25.)),
                          'attach_to': self.ego}
 
         right_camera_config = {'data_type': 'sensor.camera.rgb', 'image_size_x': env_v1_two_eyes_config.img_size[0],
                               'image_size_y': env_v1_two_eyes_config.img_size[1], 'fov': 110, 'sensor_tick': 0.02,
-                              'transform': carla.Transform(carla.Location(x=0.4, y=0.4, z=1.4),
-                                                           carla.Rotation(yaw=25.)),
+                              'transform': carla.Transform(carla.Location(x=0.4, y=0.4, z=2),
+                                                           carla.Rotation(yaw=25., pitch=-25.)),
                               'attach_to': self.ego}
 
         self.left_camera = sensor_ops.bgr_camera(self.world, left_camera_config)
@@ -58,12 +58,17 @@ if __name__ == '__main__':
 
     scenario = ObstacleAvoidanceScenarioTwoEyes()
     scenario.reset()
+    i = 0
     while True:
+        i += 1
         state, done = scenario.random_action_test_v2()
 
         cv2.imshow('left', state[..., :3])
         cv2.imshow('right', state[..., 3:])
-        cv2.waitKey(1)
+        if i < 15:
+            cv2.waitKey(1)
+        else:
+            cv2.waitKey(0)
 
         if done:
             scenario.reset()

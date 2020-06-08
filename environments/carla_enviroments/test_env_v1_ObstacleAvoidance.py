@@ -23,14 +23,14 @@ hyperparameters = {
         "beta_prioritised_replay": 0.1,
         "incremental_td_error": 1e-8,
         "update_every_n_steps": 1,
-        "linear_hidden_units": [30, 60, 30],
+        "linear_hidden_units": [24, 96, 256, 96, 24],
         "final_layer_activation": "None",
-        "batch_norm": False,
+        "batch_norm": True,
         "gradient_clipping_norm": 0.1,
         "learning_iterations": 1,
         "clip_rewards": False}
 
-resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\environments\carla_enviroments\env_v1_ObstacleAvoidance\saves\models\dqn_fix_q\DQN with Fixed Q Targets_network.pt'
+resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\environments\carla_enviroments\env_v1_ObstacleAvoidance\saves\models\DQN_PR\\20200608\DDQN with Prioritised Replay_network.pt'
 
 
 def create_NN(input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):

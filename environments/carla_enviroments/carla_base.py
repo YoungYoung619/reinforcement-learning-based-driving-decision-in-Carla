@@ -53,6 +53,14 @@ class carla_base(gym.Env):
         # logger.info('respond time consumption %f'%(round(elapse_time.delta_seconds, 6)))
         return elapse_time.delta_seconds
 
+    def pause(self):
+        """pause the simulator"""
+        self.start_synchronous_mode()
+
+    def resume(self):
+        """resume the simulator from pause"""
+        self.close_synchronous_mode()
+
 if __name__ == '__main__':
     a = carla_base()
     pass

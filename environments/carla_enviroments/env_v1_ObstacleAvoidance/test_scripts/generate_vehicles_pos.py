@@ -2,7 +2,7 @@
 import random
 import numpy as np
 
-road_range = {'x':(-40., 154.), 'y':(204., 207.)}
+road_range = {'x':(-40., 154.), 'y':(204., 207.5)}
 
 def generate_vehicles_pos(n_vehicles):
     """ random spawn an autopilot at a transform in carla world
