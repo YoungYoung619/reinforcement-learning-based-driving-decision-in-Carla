@@ -1,4 +1,5 @@
 from agents.DQN_agents.DQN_With_Fixed_Q_Targets import DQN_With_Fixed_Q_Targets
+import re
 
 class DDQN(DQN_With_Fixed_Q_Targets):
     """A double DQN agent"""
@@ -16,6 +17,7 @@ class DDQN(DQN_With_Fixed_Q_Targets):
         except:
             print(next_states)
         Q_targets_next = self.q_network_target(next_states).gather(1, max_action_indexes.unsqueeze(1))
-        return Q_targets_next 
+        return Q_targets_next
+
             
 

@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from agents.DQN_agents.DDQN import DDQN
 from utilities.data_structures.Prioritised_Replay_Buffer import Prioritised_Replay_Buffer
 import os
+import re
 
 class DDQN_With_Prioritised_Experience_Replay(DDQN):
     """A DQN agent with prioritised experience replay"""
@@ -11,6 +12,9 @@ class DDQN_With_Prioritised_Experience_Replay(DDQN):
     def __init__(self, config):
         DDQN.__init__(self, config)
         self.memory = Prioritised_Replay_Buffer(self.hyperparameters, config.seed)
+
+        if config.resume:
+            self.load_resume(config.resume_path)
 
     def learn(self):
         """Runs a learning iteration for the Q network after sampling from the replay buffer in a prioritised way"""
@@ -49,3 +53,28 @@ class DDQN_With_Prioritised_Experience_Replay(DDQN):
             g['lr'] = new_lr
 
         self.logger.info("Learning rate {}".format(new_lr))
+
+    def load_resume(self, resume_path):
+        save = torch.load(resume_path)
+        if self.agent_name != "DQN":
+            q_network_local_dict = save['q_network_local']
+            q_network_target_dict = save['q_network_target']
+            self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
+            self.q_network_target.load_state_dict(q_network_target_dict, strict=True)
+        else:
+            q_network_local_dict = save['q_network_local']
+            self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
+
+        episode_str = re.findall(r"\d+\.?\d*", resume_path)[0]
+        episode_list = episode_str.split('.')
+        if not episode_list[1]:
+            episode = episode_list[0]
+        else:
+            episode = 0
+
+        if not self.config.retrain:
+            self.episode_number = int(episode)
+        else:
+            self.episode_number = 0
+
+        self.logger.info('load resume model-%s success, the training episode will be started from %d...'%(resume_path, self.episode_number))

@@ -53,6 +53,7 @@ class Base_Agent(object):
         """Takes a step in the game. This method must be overriden by any agent"""
         raise ValueError("Step needs to be implemented by the agent")
 
+
     def get_environment_title(self):
         """Extracts name of environment from it"""
         try:
@@ -245,8 +246,9 @@ class Base_Agent(object):
         text = """"\r Episode {0}, Score: {3: .2f}, Max score seen: {4: .2f}, Rolling score: {1: .2f}, Max rolling score seen: {2: .2f}"""
         # sys.stdout.write(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
         #                              self.game_full_episode_scores[-1], self.max_episode_score_seen))
-        self.logger.info(text.format(len(self.game_full_episode_scores), self.rolling_results[-1], self.max_rolling_score_seen,
+        self.logger.info(text.format(self.episode_number, self.rolling_results[-1], self.max_rolling_score_seen,
                                      self.game_full_episode_scores[-1], self.max_episode_score_seen))
+
         # sys.stdout.flush()
 
     def show_whether_achieved_goal(self):
@@ -431,3 +433,6 @@ class Base_Agent(object):
         # print('agent steady : ', self.agent_steady())
         # print('saddle_point_near : ', self.saddle_point_near())
         return self.agent_steady() and self.saddle_point_near()
+
+    def load_resume(self, resume_path):
+        raise NotImplementedError
