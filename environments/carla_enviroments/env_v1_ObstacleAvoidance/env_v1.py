@@ -337,17 +337,23 @@ class ObstacleAvoidanceScenario(carla_base):
         state = left_obstacle_location + right_obstacle_location
 
         ego_velocity = ego.get_velocity()
-        left_velocity = self.left_obstacle.get_velocity()
-        right_velocity = self.right_obstacle.get_velocity()
+        if self.left_obstacle:
+            left_velocity = self.left_obstacle.get_velocity()
+            left_ego_v_x = (ego_velocity.x - left_velocity.x) / self.max_longitude_velocity
+            left_ego_v_y = (ego_velocity.y - left_velocity.y) / self.max_lateral_velocity
+        else:
+            left_ego_v_x = 0.
+            left_ego_v_y = 0.
 
-        left_ego_v_x = (ego_velocity.x - left_velocity.x) / self.max_longitude_velocity
-        left_ego_v_y = (ego_velocity.y - left_velocity.y) / self.max_lateral_velocity
-
-        right_ego_v_x = (ego_velocity.x - right_velocity.x) / self.max_longitude_velocity
-        right_ego_v_y = (ego_velocity.y - right_velocity.y) / self.max_lateral_velocity
+        if self.right_obstacle:
+            right_velocity = self.right_obstacle.get_velocity()
+            right_ego_v_x = (ego_velocity.x - right_velocity.x) / self.max_longitude_velocity
+            right_ego_v_y = (ego_velocity.y - right_velocity.y) / self.max_lateral_velocity
+        else:
+            right_ego_v_x = 0.
+            right_ego_v_y = 0.
 
         state = state + [left_ego_v_x, left_ego_v_y, right_ego_v_x, right_ego_v_y]
-
         return state
 
     def get_lateral_limitation(self, ego):
