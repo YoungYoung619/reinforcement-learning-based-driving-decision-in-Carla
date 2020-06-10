@@ -10,6 +10,7 @@ from agents.Base_Agent import Base_Agent
 from exploration_strategies.Epsilon_Greedy_Exploration import Epsilon_Greedy_Exploration
 from utilities.data_structures.Replay_Buffer import Replay_Buffer
 import glob
+import re
 
 class DQN(Base_Agent):
     """A deep Q learning agent"""
@@ -156,3 +157,27 @@ class DQN(Base_Agent):
             save_name = model_root + "/%s_%d.model" % (self.agent_name, self.episode_number)
             torch.save(state, save_name)
             self.logger.info('Model-%s save success...' % (save_name))
+
+    def load_resume(self, resume_path):
+        save = torch.load(resume_path)
+        if self.agent_name != "DQN":
+            q_network_local_dict = save['q_network_local']
+            q_network_target_dict = save['q_network_target']
+            self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
+            self.q_network_target.load_state_dict(q_network_target_dict, strict=True)
+        else:
+            q_network_local_dict = save['q_network_local']
+            self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
+        self.logger.info('load resume model success...')
+
+        episode_str = re.findall(r"\d+\.?\d*", resume_path)[0]
+        episode_list = episode_str.split('.')
+        if not episode_list[1]:
+            episode = episode_list[0]
+        else:
+            episode = 0
+
+        if not self.config.retrain:
+            self.episode_number = episode
+        else:
+            self.episode_number = 0

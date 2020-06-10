@@ -24,12 +24,16 @@ def try_spawn_random_vehicle_at(world, transform, role_name, autopilot=False, ve
 
     if (vehicle is not None) and (autopilot):
         vehicle.set_autopilot(True)
+        # throttle = random.uniform(0.2, 0.45)
+        # vehicle.apply_control(carla.VehicleControl(throttle=throttle,
+        #                                            steer=0, brake=0.))
         # logger.info('spawned a autopilot %r at %s' % (vehicle.type_id, transform.location))
     elif (vehicle is not None) and (not autopilot):
         vehicle.set_autopilot(False)
+        ## 避免初始时，在倾斜的地面滑动
+        vehicle.apply_control(carla.VehicleControl(throttle=0,
+                                            steer=0, brake=1.))
         # logger.info('spawned a egopilot %r at %s' % (vehicle.type_id, transform.location))
-    vehicle.apply_control(carla.VehicleControl(throttle=0,
-                                        steer=0, brake=1.))
     return vehicle
 
 
