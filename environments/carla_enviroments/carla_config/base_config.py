@@ -7,4 +7,4 @@ egg_config = {'DESKTOP-99MRARG':'C:\my_project\CARLA_0.9.5\PythonAPI\carla\dist\
 egg_file = egg_config[hostname]
 
 world_ops_logger = False
-no_render_mode = False
+no_render_mode = True

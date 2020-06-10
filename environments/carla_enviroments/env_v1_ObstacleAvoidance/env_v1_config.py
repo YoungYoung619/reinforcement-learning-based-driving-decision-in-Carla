@@ -6,7 +6,7 @@ synchronous_mode = False
 fix_vehicle_pos = False
 vehicles_pos_file = os.path.join(os.path.dirname(__file__), 'saves/positions/12_vehicle_positions.npz')
 lateral_pos_limitation = (203.3, 208.3)
-action_holding_time = 0.05
+action_holding_time = 0.15
 
 # -------- sensor settings ----------- #
 collision_sensor_config = {'data_type': 'sensor.other.collision','attach_to': None}
