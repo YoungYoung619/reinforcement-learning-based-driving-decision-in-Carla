@@ -14,7 +14,7 @@ from torch.optim import optimizer
 from copy import deepcopy
 
 class Base_Agent(object):
-
+    agent_name = 'base_agent'
     def __init__(self, config):
         self.debug_mode = config.debug_mode
         # if self.debug_mode: self.tensorboard = SummaryWriter()

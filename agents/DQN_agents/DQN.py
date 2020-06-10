@@ -141,7 +141,7 @@ class DQN(Base_Agent):
             state = {'episode': self.episode_number,
                      'q_network_local': self.q_network_local.state_dict()}
 
-        model_root = os.path.join('Models', self.agent_name, self.config.log_base)
+        model_root = os.path.join('Models', self.config.env_title, self.agent_name, self.config.log_base)
         if not os.path.exists(model_root):
             os.makedirs(model_root)
 

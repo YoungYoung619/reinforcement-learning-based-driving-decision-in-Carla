@@ -22,9 +22,12 @@ from agents.policy_gradient_agents.REINFORCE import REINFORCE
 ## envs import ##
 from environments.carla_enviroments import env_v1_ObstacleAvoidance
 
+env_title = "ObstacleAvoidance-v0"
+
 config = Config()
+config.env_title = env_title
 config.seed = 1
-config.environment = gym.make("ObstacleAvoidance-v0")
+config.environment = gym.make(env_title)
 config.num_episodes_to_run = 2000
 config.show_solution_score = False
 config.visualise_individual_results = True
@@ -39,8 +42,9 @@ config.log_loss = False
 config.log_base = time.strftime("%Y%m%d%H%M%S", time.localtime())
 config.save_model_freq = 300    ## save model per 300 episodes
 
+config.retrain = False
 config.resume = False
-config.resume_path = ''
+config.resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\\results\Models\DDQN with Prioritised Replay\DDQN with Prioritised Replay_1500.model'
 config.backbone_pretrain = False
 
 config.force_explore_mode = True
@@ -58,7 +62,7 @@ config.file_to_save_results_graph = os.path.join(data_results_root, "data.png")
 
 config.hyperparameters = {
     "DQN_Agents": {
-        "learning_rate": 1e-1/5.,
+        "learning_rate": 1e-1,
         "batch_size": 256,
         "buffer_size": 20000,
         "epsilon": 1.0,
