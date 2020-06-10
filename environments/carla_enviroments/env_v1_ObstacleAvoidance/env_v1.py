@@ -51,11 +51,13 @@ class ObstacleAvoidanceScenario(carla_base):
             self.end_point_x = 155.
 
             # max velocity
-            self.max_longitude_velocity = 6. ## m/s
-            self.max_lateral_velocity = 1.5 ## m/s
+            self.max_longitude_velocity = 6. ## m/s, this is not the speed limitation, only used to normalize the velocity
+            self.max_lateral_velocity = 1.5 ## m/s, same as above
 
             ##
             self.n_been_catched_record = 0
+
+            self.test_mode = False
 
 
     def reset(self):
@@ -63,7 +65,7 @@ class ObstacleAvoidanceScenario(carla_base):
         self.__wait_env_running(time=0.5)
         world_ops.destroy_all_actors(self.world)
         self.__wait_env_running(time=0.5)
-        self.__respawn_vehicles()
+        self.respawn_vehicles()
         self.__wait_env_running(time=0.5)
         self.reattach_sensors()
 
@@ -80,14 +82,20 @@ class ObstacleAvoidanceScenario(carla_base):
         self.n_been_catched_record = 0
         return self.get_env_state()   # return the init state
 
-    def step(self, action):
+    def step(self, action_idx):
         """conduct action in env
         Args:
             action: int, an idx
         Return: env state, reward, done, info
         """
         # --- conduct action and holding a while--- #
-        action = env_v1_config.actions[action]
+        if self.test_mode:
+            action = np.array(env_v1_config.actions[action_idx])
+            action = 0.7 * action + 0.3 * self.last_action
+            self.last_action = action
+        else:
+            action = env_v1_config.actions[action_idx]
+
         self.ego.apply_control(carla.VehicleControl(throttle=action[0],
                                                     steer=action[1], brake=action[2]))
         self.__wait_env_running(time=env_v1_config.action_holding_time)
@@ -345,7 +353,7 @@ class ObstacleAvoidanceScenario(carla_base):
         # state = ego_state   ## this is ok for only balance driving
         return np.array(state)
 
-    def __respawn_vehicles(self):
+    def respawn_vehicles(self):
         only_one_vehicle = False
 
         if not only_one_vehicle:
@@ -390,9 +398,11 @@ class ObstacleAvoidanceScenario(carla_base):
         env_v1_config.collision_sensor_config['attach_to'] = self.ego
         self.collision_sensor = sensor_ops.collision_query(self.world, env_v1_config.collision_sensor_config)
 
+        if self.test_mode:
+            self.attach_camera_to_ego()
+
         # env_v1_config.invasion_sensor_config['attach_to'] = self.ego
         # self.lane_invasion_sensor = sensor_ops.lane_invasion_query(self.world, env_v1_config.invasion_sensor_config)
-        pass
 
     def __lane_invasion(self):
         """imitate the lane invasion sensor"""
@@ -590,6 +600,18 @@ class ObstacleAvoidanceScenario(carla_base):
             if ego_pos.x - obstacle_pos.x > 0.1:
                 n_been_catched_so_far += 1
         return n_been_catched_so_far
+
+    def attach_camera_to_ego(self):
+        camera_config = {'data_type': 'sensor.camera.rgb', 'image_size_x': 640,
+                              'image_size_y': 360, 'fov': 110, 'sensor_tick': 0.02,
+                              'transform': carla.Transform(carla.Location(x=-0., y=-0.4, z=1.25)),
+                              'attach_to': self.ego}
+
+        self.camera = sensor_ops.bgr_camera(self.world, camera_config)
+
+    def test(self):
+        self.last_action = np.array([0., 0., 0.])
+        self.test_mode = True
 
 if __name__ == '__main__':
 
