@@ -18,9 +18,12 @@ class Config(object):
         self.randomise_random_seed = True
         self.show_solution_score = False
         self.debug_mode = False
+
+        self.retrain = True
         self.resume = False
         self.resume_path = None
         self.backbone_pretrain = False
+
         self.log_loss = False
         self.log_base = None
         self.save_model_freq = 300
@@ -29,5 +32,7 @@ class Config(object):
         self.force_explore_mode = False
         self.force_explore_stare_e = None  ## when the std of rolling score in last 10 window is smaller than this val, start explore mode
         self.force_explore_rate = None  ## only when the current score bigger than 0.8*max(rolling score[-10:]), forece expolre
+
+        self.env_title = None
 
 

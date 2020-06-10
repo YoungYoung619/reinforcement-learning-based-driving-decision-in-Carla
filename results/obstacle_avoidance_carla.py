@@ -22,10 +22,13 @@ from agents.policy_gradient_agents.REINFORCE import REINFORCE
 ## envs import ##
 from environments.carla_enviroments import env_v1_ObstacleAvoidance
 
+env_title = "ObstacleAvoidance-v0"
+
 config = Config()
+config.env_title = env_title
 config.seed = 1
-config.environment = gym.make("ObstacleAvoidance-v0")
-config.num_episodes_to_run = 500
+config.environment = gym.make(env_title)
+config.num_episodes_to_run = 2000
 config.show_solution_score = False
 config.visualise_individual_results = True
 config.visualise_overall_agent_results = True
@@ -39,12 +42,13 @@ config.log_loss = False
 config.log_base = time.strftime("%Y%m%d%H%M%S", time.localtime())
 config.save_model_freq = 300    ## save model per 300 episodes
 
+config.retrain = False
 config.resume = False
-config.resume_path = ''
+config.resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\\results\Models\DDQN with Prioritised Replay\DDQN with Prioritised Replay_1500.model'
 config.backbone_pretrain = False
 
 config.force_explore_mode = True
-config.force_explore_stare_e = 0.01 ## when the std of rolling score in last 10 window is smaller than this val, start explore mode
+config.force_explore_stare_e = 0.4 ## when the std of rolling score in last 10 window is smaller than this val, start explore mode
 config.force_explore_rate = 0.95 ## only when the current score bigger than 0.8*max(rolling score[-10:]), forece expolre
 
 ## data and graphs save dir ##
@@ -71,7 +75,7 @@ config.hyperparameters = {
         "update_every_n_steps": 1,
         "linear_hidden_units": [24, 96, 256, 96, 24],
         "final_layer_activation": "None",
-        "batch_norm": False,
+        "batch_norm": True,
         "gradient_clipping_norm": 0.1,
         "learning_iterations": 1,
         "clip_rewards": False
