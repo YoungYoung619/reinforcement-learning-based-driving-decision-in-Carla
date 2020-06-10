@@ -13,3 +13,10 @@ register(
     trials = 10,
     reward_threshold = 160.,
 )
+
+register(
+    id='ObstacleAvoidance-v2',
+    entry_point='environments.carla_enviroments.env_v1_ObstacleAvoidance.env_v1_dynamic:ObstacleAvoidanceScenarioDynamic',
+    trials = 10,
+    reward_threshold = 160.,
+)
