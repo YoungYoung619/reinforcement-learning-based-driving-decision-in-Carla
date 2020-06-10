@@ -7,6 +7,7 @@ import numpy as np
 import time
 from environments.carla_enviroments.carla_config import base_config
 from environments.carla_enviroments.env_v1_ObstacleAvoidance import env_v1_config
+import cv2
 
 #--------- 这句import一定要加---------#
 from environments.carla_enviroments import env_v1_ObstacleAvoidance
@@ -30,7 +31,7 @@ hyperparameters = {
         "learning_iterations": 1,
         "clip_rewards": False}
 
-resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\environments\carla_enviroments\env_v1_ObstacleAvoidance\saves\models\DQN_PR\\20200608\DDQN with Prioritised Replay_network.pt'
+resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\\results\Models\DDQN with Prioritised Replay\DDQN with Prioritised Replay_1500.model'
 
 
 def create_NN(input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):
@@ -75,20 +76,43 @@ def get_action(net, state):
 
 
 if __name__ == '__main__':
+    ## save video
+    save_video = True
+    save_to = 'DDQN_1.avi'
+
+    if save_video:
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        VideoWriter = cv2.VideoWriter(save_to, fourcc, int(1./env_v1_config.action_holding_time+0.05), (640, 360))
+
     base_config.no_render_mode = False
     env = gym.make('ObstacleAvoidance-v0')
+    env.test()
 
     state = env.reset()
     net = load_q_network(state.size, env.action_space.n)
     total_reward = 0.
     while True:
+        tic1 = time.time()
         action_idx = get_action(net, state)
         state, reward, done, _ = env.step(action_idx)
         total_reward += reward
+        action_hold = time.time() - tic1
+        print('action_hold:%.4ssec'%(action_hold))
+        img = env.camera.get()
+
+        if save_video:
+            VideoWriter.write(img)
+            # time.sleep(1. / 25.)
+        else:
+            cv2.imshow('camera', img)
+            cv2.waitKey(1)
 
         if done:
             state = env.reset()
             print('total_reward:', total_reward)
             total_reward = 0.
+
+            if save_video:
+                break
     pass
 
