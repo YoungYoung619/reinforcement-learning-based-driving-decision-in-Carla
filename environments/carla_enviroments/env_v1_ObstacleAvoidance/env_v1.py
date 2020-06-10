@@ -59,6 +59,9 @@ class ObstacleAvoidanceScenario(carla_base):
 
             self.test_mode = False
 
+            self.left_obstacle = None
+            self.right_obstacle = None
+
 
     def reset(self):
         """reset the world"""
@@ -221,128 +224,131 @@ class ObstacleAvoidanceScenario(carla_base):
         pdf = pdf / (norm(x=mean, mu=mean, sigma=std)- norm(x=bias, mu=mean, sigma=std)) * max
         return pdf
 
-    def get_env_state(self):
-        def get_ego_state(ego):
-            ego_transform = ego.get_transform()
-            ego_velocity = ego.get_velocity()
-            ego_angular = ego.get_angular_velocity()
-            ego_acc = ego.get_acceleration()
-            ego_control = ego.get_control()
+    def get_ego_state(self, ego):
+        ego_transform = ego.get_transform()
+        ego_velocity = ego.get_velocity()
+        ego_angular = ego.get_angular_velocity()
+        # ego_acc = ego.get_acceleration()
+        # ego_control = ego.get_control()
 
-            # print('ego_transform.rotation.yaw', ego_transform.rotation.yaw)
-            # print('ego_transform.rotation.pitch', ego_transform.rotation.pitch)
-            # print('ego_transform.rotation.roll', ego_transform.rotation.roll)
-            # print('ego_angular.x:', ego_angular.x)
-            # print('ego_angular.y:', ego_angular.y)
-            # print('ego_angular.z:', ego_angular.z)
-            # print('x_v', ego_velocity.x)
-            # print('y_v', ego_velocity.y)
-            lateral = abs(env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0])
-            init_lateral_point = (env_v1_config.lateral_pos_limitation[1] + env_v1_config.lateral_pos_limitation[0]) / 2.
-            haft_lateral = lateral / 2.
-            # state = [(ego_transform.location.x - self.__ego_init_forward_pos)/self.__totoal_lane_distance,
-            #          (ego_transform.location.y - env_v1_config.lateral_pos_limitation[0])/lateral,
-            #          ego_transform.rotation.yaw / 30.,
-            #          ego_angular.z / 50.,
-            #          ego_velocity.x / self.max_longitude_velocity,
-            #          ego_velocity.y / self.max_lateral_velocity]
-            #          # ego_acc.x, ego_acc.y,
-            #          # ego_control.throttle, ego_control.steer, ego_control.brake]
+        # print('ego_transform.rotation.yaw', ego_transform.rotation.yaw)
+        # print('ego_transform.rotation.pitch', ego_transform.rotation.pitch)
+        # print('ego_transform.rotation.roll', ego_transform.rotation.roll)
+        # print('ego_angular.x:', ego_angular.x)
+        # print('ego_angular.y:', ego_angular.y)
+        # print('ego_angular.z:', ego_angular.z)
+        # print('x_v', ego_velocity.x)
+        # print('y_v', ego_velocity.y)
+        lateral = abs(env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0])
+        init_lateral_point = (env_v1_config.lateral_pos_limitation[1] + env_v1_config.lateral_pos_limitation[0]) / 2.
+        haft_lateral = lateral / 2.
+        # state = [(ego_transform.location.x - self.__ego_init_forward_pos)/self.__totoal_lane_distance,
+        #          (ego_transform.location.y - env_v1_config.lateral_pos_limitation[0])/lateral,
+        #          ego_transform.rotation.yaw / 30.,
+        #          ego_angular.z / 50.,
+        #          ego_velocity.x / self.max_longitude_velocity,
+        #          ego_velocity.y / self.max_lateral_velocity]
+        #          # ego_acc.x, ego_acc.y,
+        #          # ego_control.throttle, ego_control.steer, ego_control.brake]
 
-            state = [(ego_transform.location.y - init_lateral_point) / haft_lateral,
-                     ego_velocity.y / self.max_lateral_velocity,
-                     ego_transform.rotation.yaw / 30.,
-                     ego_angular.z / 50.]
+        state = [(ego_transform.location.y - init_lateral_point) / haft_lateral,
+                 ego_velocity.y / self.max_lateral_velocity,
+                 ego_transform.rotation.yaw / 30.,
+                 ego_angular.z / 50.]
 
-            # state[0] = max(state[0], 1e-2) if state[0] >=0 else min(state[0], -1e-2)
-            # state[1] = max(state[1], 1e-2) if state[1] >=0 else min(state[1], -1e-2)
-            # state[2] = max(state[2], 1e-2) if state[2] >=0 else min(state[2], -1e-2)
-            # state[3] = max(state[3], 1e-2) if state[3] >=0 else min(state[3], -1e-2)
+        # state[0] = max(state[0], 1e-2) if state[0] >=0 else min(state[0], -1e-2)
+        # state[1] = max(state[1], 1e-2) if state[1] >=0 else min(state[1], -1e-2)
+        # state[2] = max(state[2], 1e-2) if state[2] >=0 else min(state[2], -1e-2)
+        # state[3] = max(state[3], 1e-2) if state[3] >=0 else min(state[3], -1e-2)
 
+        # ego_acc.x, ego_acc.y,
+        # ego_control.throttle, ego_control.steer, ego_control.brake]
+        # print('state:', state)
+        return state
 
-            # ego_acc.x, ego_acc.y,
-            # ego_control.throttle, ego_control.steer, ego_control.brake]
-            # print('state:', state)
-            return state
-
-        def get_obstacles_state(ego, obstacles):
-            """只记录位置在ego之前，并且距离ego最近的，左右两车道各一个障碍物的位置及大小"""
-            # ---- 获取左右车道线离ego最近的车辆（考虑范围为没有超过障碍物3.8m以上的所有） ----- #
-            ego_location = ego.get_location()
-            left_obstacle = None
-            right_obstacle = None
-            for obstacle in obstacles:
-                obstacle_location = obstacle.get_location()
-                if obstacle_location.x - ego_location.x > -3.8:    ##若ego没有超过障碍物3.8m以上, 则需要考虑其影响
-                    if not left_obstacle:
-                        if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) <= abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
-                            left_obstacle = obstacle
-                    else:
-                        left_obstacle_location = left_obstacle.get_location()
-                        obstacle2ego_dist = (ego_location.x - obstacle_location.x) ** 2 + (
-                                    ego_location.y - obstacle_location.y) ** 2
-                        if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) <= abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
-                            current_left2ego_dist = (ego_location.x - left_obstacle_location.x) ** 2 + (ego_location.y - left_obstacle_location.y) ** 2
-                            if obstacle2ego_dist <= current_left2ego_dist:
-                                left_obstacle = obstacle
-
-                    if not right_obstacle:
-                        if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) > abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
-                            right_obstacle = obstacle
-                    else:
-                        right_obstacle_location = right_obstacle.get_location()
-                        obstacle2ego_dist = (ego_location.x - obstacle_location.x) ** 2 + (
-                                    ego_location.y - obstacle_location.y) ** 2
-                        if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) > abs(
+    def get_obstacles_state(self, ego, obstacles):
+        """只记录位置在ego之前，并且距离ego最近的，左右两车道各一个障碍物的位置及大小"""
+        # ---- 获取左右车道线离ego最近的车辆（考虑范围为没有超过障碍物3.8m以上的所有） ----- #
+        ego_location = ego.get_location()
+        self.right_obstacle = None
+        self.left_obstacle = None
+        for obstacle in obstacles:
+            obstacle_location = obstacle.get_location()
+            if obstacle_location.x - ego_location.x > -3.8:  ##若ego没有超过障碍物3.8m以上, 则需要考虑其影响
+                if not self.left_obstacle:
+                    if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) <= abs(
                             obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
-                            current_right2ego_dist = (ego_location.x - right_obstacle_location.x) ** 2 + (
-                                        ego_location.y - right_obstacle_location.y) ** 2
-                            if obstacle2ego_dist <= current_right2ego_dist:
-                                right_obstacle = obstacle
-            # ---- 获取左右车道线离ego最近的车辆（考虑范围为没有超过障碍物3.8m以上的所有） ----- #
-
-            lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
-
-            # --- 若没有，则默认0 ---- #
-            if not left_obstacle:
-                left_obstacle_location = [0., 0., 0.]   ##
-            else:
-                left_obstacle_location = left_obstacle.get_location()
-                if math.sqrt((left_obstacle_location.x - ego_location.x) ** 2 + (
-                        left_obstacle_location.y - ego_location.y) ** 2) <= env_v1_config.farest_vehicle_consider:
-                    left_obstacle_location = [1., ## 指示有没有左障碍物
-                                              (left_obstacle_location.x - ego_location.x) / self.__totoal_lane_distance,
-                                              (left_obstacle_location.y - ego_location.y)/lateral]
+                        self.left_obstacle = obstacle
                 else:
-                    left_obstacle_location = [0., 0., 0.]  ##
+                    left_obstacle_location = self.left_obstacle.get_location()
+                    obstacle2ego_dist = (ego_location.x - obstacle_location.x) ** 2 + (
+                            ego_location.y - obstacle_location.y) ** 2
+                    if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) <= abs(
+                            obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
+                        current_left2ego_dist = (ego_location.x - left_obstacle_location.x) ** 2 + (
+                                    ego_location.y - left_obstacle_location.y) ** 2
+                        if obstacle2ego_dist <= current_left2ego_dist:
+                            self.left_obstacle = obstacle
 
-            if not right_obstacle:
-                right_obstacle_location = [0., 0., 0.]  ##
-            else:
-                right_obstacle_location = right_obstacle.get_location()
-                if math.sqrt((right_obstacle_location.x - ego_location.x)**2 + (
-                        right_obstacle_location.y - ego_location.y)**2) <= env_v1_config.farest_vehicle_consider:
-                    right_obstacle_location = [1.,
-                                               (right_obstacle_location.x - ego_location.x) / self.__totoal_lane_distance,
-                                               (right_obstacle_location.y - ego_location.y)/lateral]
+                if not self.right_obstacle:
+                    if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) > abs(
+                            obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
+                        self.right_obstacle = obstacle
                 else:
-                    right_obstacle_location = [0., 0., 0.]  ## 右边的最近车辆太远，当做没有
+                    right_obstacle_location = self.right_obstacle.get_location()
+                    obstacle2ego_dist = (ego_location.x - obstacle_location.x) ** 2 + (
+                            ego_location.y - obstacle_location.y) ** 2
+                    if abs(obstacle_location.y - env_v1_config.lateral_pos_limitation[0]) > abs(
+                            obstacle_location.y - env_v1_config.lateral_pos_limitation[1]):
+                        current_right2ego_dist = (ego_location.x - right_obstacle_location.x) ** 2 + (
+                                ego_location.y - right_obstacle_location.y) ** 2
+                        if obstacle2ego_dist <= current_right2ego_dist:
+                            self.right_obstacle = obstacle
+        # ---- 获取左右车道线离ego最近的车辆（考虑范围为没有超过障碍物3.8m以上的所有） ----- #
 
-            ## [left_pos, left_size, right_pos, right_size]
-            state = left_obstacle_location + right_obstacle_location
-            return state
+        lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
 
-        def get_lateral_limitation(ego):
-            """获取左右可行驶区域的距离"""
-            ego_location = ego.get_location()
-            lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
-            left_dist = (ego_location.y - env_v1_config.lateral_pos_limitation[0]) / lateral
-            right_dist = (env_v1_config.lateral_pos_limitation[1] - ego_location.y) / lateral
-            return [left_dist, right_dist]
+        # --- 若没有，则默认0 ---- #
+        if not self.left_obstacle:
+            left_obstacle_location = [0., 0., 0.]  ##
+        else:
+            left_obstacle_location = self.left_obstacle.get_location()
+            if math.sqrt((left_obstacle_location.x - ego_location.x) ** 2 + (
+                    left_obstacle_location.y - ego_location.y) ** 2) <= env_v1_config.farest_vehicle_consider:
+                left_obstacle_location = [1.,  ## 指示有没有左障碍物
+                                          (left_obstacle_location.x - ego_location.x) / self.__totoal_lane_distance,
+                                          (left_obstacle_location.y - ego_location.y) / lateral]
+            else:
+                left_obstacle_location = [0., 0., 0.]  ##
 
-        ego_state = get_ego_state(self.ego)
-        obstacles_state = get_obstacles_state(self.ego, self.obstacles)
-        lateral_state = get_lateral_limitation(self.ego)
+        if not self.right_obstacle:
+            right_obstacle_location = [0., 0., 0.]  ##
+        else:
+            right_obstacle_location = self.right_obstacle.get_location()
+            if math.sqrt((right_obstacle_location.x - ego_location.x) ** 2 + (
+                    right_obstacle_location.y - ego_location.y) ** 2) <= env_v1_config.farest_vehicle_consider:
+                right_obstacle_location = [1.,
+                                           (right_obstacle_location.x - ego_location.x) / self.__totoal_lane_distance,
+                                           (right_obstacle_location.y - ego_location.y) / lateral]
+            else:
+                right_obstacle_location = [0., 0., 0.]  ## 右边的最近车辆太远，当做没有
+
+        ## [left_pos, left_size, right_pos, right_size]
+        state = left_obstacle_location + right_obstacle_location
+        return state
+
+    def get_lateral_limitation(self, ego):
+        """获取左右可行驶区域的距离"""
+        ego_location = ego.get_location()
+        lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
+        left_dist = (ego_location.y - env_v1_config.lateral_pos_limitation[0]) / lateral
+        right_dist = (env_v1_config.lateral_pos_limitation[1] - ego_location.y) / lateral
+        return [left_dist, right_dist]
+
+    def get_env_state(self):
+        ego_state = self.get_ego_state(self.ego)
+        obstacles_state = self.get_obstacles_state(self.ego, self.obstacles)
+        # lateral_state = self.get_lateral_limitation(self.ego)
 
         # logger.info('ego_state -- ' + str(ego_state))
         # logger.info('obstacles_state -- ' + str(obstacles_state))
@@ -482,8 +488,10 @@ class ObstacleAvoidanceScenario(carla_base):
 
         # --- do action ---#
         steer = random.uniform(-1., 1.)
-        self.ego.apply_control(carla.VehicleControl(throttle=0.5,
-                                                    steer=0., brake=0.))
+        # self.ego.apply_control(carla.VehicleControl(throttle=0.7,
+        #                                             steer=0., brake=0.))
+        self.step(action_idx=4)
+
         # ---- action holding ---- #
         self.__wait_env_running(time=env_v1_config.action_holding_time)
 
