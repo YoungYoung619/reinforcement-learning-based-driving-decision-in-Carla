@@ -39,10 +39,13 @@ class DDQN_With_Prioritised_Experience_Replay(DDQN):
 
     def update_learning_rate(self, starting_lr,  optimizer):
         """Lowers the learning rate according to how close we are to the solution"""
-        # if self.episode_number >= self.total_episode * 2 / 3:
-        #     new_lr = starting_lr / 10.
-        # elif self.
+        # if self.episode_number >= self.total_episode * 3 / 4:
+        #     new_lr = starting_lr / 6.
+        # elif self.episode_number >= self.total_episode / 2:
+        #     new_lr = starting_lr / 3.
         # else:
+        #     new_lr = starting_lr
+
         new_lr = starting_lr
 
         for g in optimizer.param_groups:
