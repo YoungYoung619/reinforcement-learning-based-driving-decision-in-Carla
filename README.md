@@ -10,12 +10,12 @@ CARLA == 0.9.5
 
 ## Scenario-I (ObstacleAvoidance-v0)
 This scenario will randomly place some static vehicles in a straight-lane. The agent should drive safely without any collision and lane-invasion (solid) behavior.
-Below script gives you an example of training an agent in this scenario.
+The following script gives you an example of training an agent in this scenario.
 ```
 python results/obstacle_avoidance_carla.py
 ```
 
-Below script show how to visualize the agent behavior after training.
+The following script shows how to visualize the agent behavior after training.
 ```
 python environments\carla_enviroments\test_env_v1_ObstacleAvoidance.py
 ```
