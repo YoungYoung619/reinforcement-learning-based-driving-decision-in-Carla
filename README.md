@@ -20,7 +20,7 @@ Below script show how to visualize the agent behavior after training.
 python environments\carla_enviroments\test_env_v1_ObstacleAvoidance.py
 ```
 
-The following animation show the agent behavior in this scenario
+The following animation show the agent behavior in this scenario.  
 ![DDQN_PR](pictures/DDQN_PR.gif)
 
 ## Scenario-II (ObstacleAvoidance-v1)
