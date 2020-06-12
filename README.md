@@ -1,4 +1,4 @@
-# RL-based-decision-making-in-Carla
+# Reinforcement-learning-based-driving-decision-in-Carla
 This package includes some deep reinforcement learning based agents for self-driving-car in CARLA.
 
 ## Requirement
