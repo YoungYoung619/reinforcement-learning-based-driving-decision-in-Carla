@@ -62,7 +62,6 @@ class ObstacleAvoidanceScenario(carla_base):
             self.left_obstacle = None
             self.right_obstacle = None
 
-
     def reset(self):
         """reset the world"""
         self.__wait_env_running(time=0.5)
@@ -94,7 +93,7 @@ class ObstacleAvoidanceScenario(carla_base):
         # --- conduct action and holding a while--- #
         if self.test_mode:
             action = np.array(env_v1_config.actions[action_idx])
-            action = 0.7 * action + 0.3 * self.last_action
+            action = 0.5 * action + 0.5 * self.last_action
             self.last_action = action
         else:
             action = env_v1_config.actions[action_idx]
@@ -121,7 +120,6 @@ class ObstacleAvoidanceScenario(carla_base):
 
         done = self.__is_done()
         return state, reward, done, {}
-
 
     def __get_reward_v1(self, **states):
         # reward = 0.
@@ -197,8 +195,8 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             obstacle_reward_map = np.zeros(shape=(512, 512), dtype=np.float32)
 
-        reward_obstacle = - obstacle_reward_map[(lateral_pos_y_pixel, 256 + lateral_pos_x_pixel)] * 4.
-        reward_lane = - lane_reward_map[(lateral_pos_y_pixel, 256 + lateral_pos_x_pixel)] * 3.
+        reward_obstacle = - obstacle_reward_map[(lateral_pos_y_pixel, min(511, 256 + lateral_pos_x_pixel))] * 4.
+        reward_lane = - lane_reward_map[(lateral_pos_y_pixel, min(511, 256 + lateral_pos_x_pixel))] * 3.
 
         reward_exist = 0.
         if not self.__is_illegal_done():
@@ -206,8 +204,30 @@ class ObstacleAvoidanceScenario(carla_base):
 
         reward = reward_exist + reward_obstacle + reward_lane
         # print('reward:', reward_lane)
-        # cv2.imshow('test_r', np.maximum(obstacle_reward_map, lane_reward_map))
+        cv2.imshow('test_r', np.maximum(obstacle_reward_map, lane_reward_map))
         return reward
+
+    def __get_reward_v4(self, **states):
+        reward_v3 = self.__get_reward_v3(**states)
+        lane_sigma = 10
+        state = states['state']
+
+        lateral_pos = state[0]  ## [-1, 1]
+        lateral_pos_x_pixel = int(lateral_pos * 100)
+        lateral_pos_y_pixel = 512 // 2
+
+        left_line_point = (lateral_pos_y_pixel - 50, 0)
+        right_line_point = (lateral_pos_y_pixel + 50, 0)
+        lane_reward_map_pos = heat_map((512, 512),
+                                   [left_line_point, right_line_point],
+                                   sigma=lane_sigma, func=gaussian_1d)
+        ## make the ego drive at the center of one lane
+        reward_lane_pos = lane_reward_map_pos[(lateral_pos_y_pixel, min(511, 256 + lateral_pos_x_pixel))]
+        reward = reward_v3 + reward_lane_pos
+        # print(reward_lane_pos)
+        # cv2.imshow('test_r_pos', lane_reward_map_pos)
+        return reward
+
 
     def __gaussian_1d(self, x, mean, std, max, bias):
         def norm(x, mu, sigma):
@@ -418,7 +438,6 @@ class ObstacleAvoidanceScenario(carla_base):
             self.wait_for_response()
             self.obstacles = []
 
-
     def reattach_sensors(self):
         env_v1_config.collision_sensor_config['attach_to'] = self.ego
         self.collision_sensor = sensor_ops.collision_query(self.world, env_v1_config.collision_sensor_config)
@@ -437,28 +456,23 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             return False
 
-
     def __print_pos(self):
         # logger.info(str(self.ego.get_location()))
         pass
-
 
     def __is_finish_game(self):
         """judge agent whether finish game"""
         location = self.ego.get_location()
         return True if location.x >= self.end_point_x else False
 
-
     def __is_illegal_done(self):
         """ judge whether lane invasion or collision"""
         return self.__lane_invasion() or self.collision_sensor.get()
-
 
     def __is_done(self):
         """query whether the game done"""
         max_step = self.step_counter >= self.max_step
         return self.__is_finish_game() or self.__lane_invasion() or self.collision_sensor.get() or max_step
-
 
     def __wait_env_running(self, time):
         """等待环境跑一段时间
@@ -469,7 +483,6 @@ class ObstacleAvoidanceScenario(carla_base):
             self.wait_carla_runing(time)
         else:
             sys_time.sleep(time)
-
 
     def random_action_test_v1(self):
         """ test script, non-syntronic mode
@@ -526,7 +539,7 @@ class ObstacleAvoidanceScenario(carla_base):
 
         # --- reward --- # forward distance, velocity and center pos
         # reward = self.__get_reward_v2()
-        reward = self.__get_reward_v3(state=state)
+        reward = self.__get_reward_v4(state=state)
         # logger.info('reward - %f'%(reward))
 
         done = self.__is_done()
@@ -583,7 +596,7 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             reward_map = np.zeros(shape=(512, 512), dtype=np.uint8)
 
-        cv2.imshow('reward', reward_map)
+        # cv2.imshow('reward', reward_map)
 
         cv2.imshow('test', img)
         cv2.waitKey(1)
@@ -642,7 +655,7 @@ class ObstacleAvoidanceScenario(carla_base):
 
 if __name__ == '__main__':
 
-    scenario =ObstacleAvoidanceScenario()
+    scenario = ObstacleAvoidanceScenario()
     scenario.reset()
     t = True
     while True:
