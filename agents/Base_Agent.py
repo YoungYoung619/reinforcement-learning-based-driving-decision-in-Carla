@@ -202,7 +202,7 @@ class Base_Agent(object):
             self.step()
             if save_and_print_results: self.save_and_print_result()
 
-            if self.config.save_model and len(self.rolling_results) > 1:
+            if self.config.save_model and len(self.rolling_results) > 100:
                 if self.rolling_results[-1] > self.best_result:
                     self.best_result = self.rolling_results[-1]
                     self.locally_save_policy(best=True, episode=None)

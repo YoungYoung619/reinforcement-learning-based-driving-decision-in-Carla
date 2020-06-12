@@ -68,7 +68,8 @@ class DDQN_With_Prioritised_Experience_Replay(DDQN):
             q_network_local_dict = save['q_network_local']
             self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
 
-        episode_str = re.findall(r"\d+\.?\d*", resume_path)[0]
+        file_name = os.path.basename(resume_path)
+        episode_str = re.findall(r"\d+\.?\d*", file_name)[0]
         episode_list = episode_str.split('.')
         if not episode_list[1]:
             episode = episode_list[0]

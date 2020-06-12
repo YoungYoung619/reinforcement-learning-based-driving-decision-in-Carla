@@ -20,6 +20,14 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
         ObstacleAvoidanceScenario.__init__(self)
         self.init_state = True
 
+        env_v1_config.actions = {0: [0.7, 0.5, 0.],
+                                 1: [0.7, -0.5, 0.],
+                                 2: [0.7, 0.1, 0.],
+                                 3: [0.7, -0.1, 0.],
+                                 4: [0.7, 0., 0.]}  # small acc
+
+        env_v1_config.action_holding_time = 0.075
+
     def respawn_vehicles(self):
         only_one_vehicle = False
 
@@ -29,7 +37,7 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
 
             obstacles = []
             n_vehicle= len(self.vehicles_pos)
-            ego_idx = random.randint(0, int(n_vehicle*0.4))
+            ego_idx = 0
             for idx, vehicle_pos in enumerate(self.vehicles_pos):
                 transform = carla.Transform()
                 transform.location.x = vehicle_pos[0]
@@ -81,21 +89,6 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
             self.init_state = False
         return state, reward, done, _
 
-    def get_obstacles_state(self, ego, obstacles):
-        state = ObstacleAvoidanceScenario.get_obstacles_state(self, ego, obstacles) ## the position and exist_flag
-
-        ego_velocity = ego.get_velocity()
-        left_velocity = self.left_obstacle.get_velocity()
-        right_velocity = self.right_obstacle.get_velocity()
-
-        left_ego_v_x = (ego_velocity.x - left_velocity.x) / self.max_longitude_velocity
-        left_ego_v_y = (ego_velocity.y - left_velocity.y) / self.max_lateral_velocity
-
-        right_ego_v_x = (ego_velocity.x - right_velocity.x) / self.max_longitude_velocity
-        right_ego_v_y = (ego_velocity.y - right_velocity.y) / self.max_lateral_velocity
-
-        state = state + [left_ego_v_x, left_ego_v_y, right_ego_v_x, right_ego_v_y]
-        return state
 
 
 if __name__ == '__main__':

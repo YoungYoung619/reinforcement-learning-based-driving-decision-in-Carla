@@ -197,8 +197,8 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             obstacle_reward_map = np.zeros(shape=(512, 512), dtype=np.float32)
 
-        reward_obstacle = - obstacle_reward_map[(lateral_pos_y_pixel, 256 + lateral_pos_x_pixel)] * 4.
-        reward_lane = - lane_reward_map[(lateral_pos_y_pixel, 256 + lateral_pos_x_pixel)] * 3.
+        reward_obstacle = - obstacle_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 4.
+        reward_lane = - lane_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 3.
 
         reward_exist = 0.
         if not self.__is_illegal_done():

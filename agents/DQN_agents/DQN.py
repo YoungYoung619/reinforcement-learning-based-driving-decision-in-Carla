@@ -170,7 +170,8 @@ class DQN(Base_Agent):
             self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
         self.logger.info('load resume model success...')
 
-        episode_str = re.findall(r"\d+\.?\d*", resume_path)[0]
+        file_name = os.path.basename(resume_path)
+        episode_str = re.findall(r"\d+\.?\d*", file_name)[0]
         episode_list = episode_str.split('.')
         if not episode_list[1]:
             episode = episode_list[0]

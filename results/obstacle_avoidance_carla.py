@@ -22,13 +22,13 @@ from agents.policy_gradient_agents.REINFORCE import REINFORCE
 ## envs import ##
 from environments.carla_enviroments import env_v1_ObstacleAvoidance
 
-env_title = "ObstacleAvoidance-v0"
+env_title = "ObstacleAvoidance-v2"
 
 config = Config()
 config.env_title = env_title
 config.seed = 1
 config.environment = gym.make(env_title)
-config.num_episodes_to_run = 2000
+config.num_episodes_to_run = 2500
 config.show_solution_score = False
 config.visualise_individual_results = True
 config.visualise_overall_agent_results = True
@@ -43,8 +43,8 @@ config.log_base = time.strftime("%Y%m%d%H%M%S", time.localtime())
 config.save_model_freq = 300    ## save model per 300 episodes
 
 config.retrain = False
-config.resume = False
-config.resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\\results\Models\DDQN with Prioritised Replay\DDQN with Prioritised Replay_1500.model'
+config.resume = True
+config.resume_path = 'E:\RL-based-decision-making-in-Carla\\results\Models\ObstacleAvoidance-v0\DDQN with Prioritised Replay\\20200611150242\\rolling_score_68.0417.model'
 config.backbone_pretrain = False
 
 config.force_explore_mode = True
@@ -66,14 +66,14 @@ config.hyperparameters = {
         "batch_size": 256,
         "buffer_size": 20000,
         "epsilon": 1.0,
-        "epsilon_decay_rate_denominator": 20.,
+        "epsilon_decay_rate_denominator": 1.,
         "discount_rate": 0.9,
         "tau": 0.01,
         "alpha_prioritised_replay": 0.6,
         "beta_prioritised_replay": 0.1,
         "incremental_td_error": 1e-8,
         "update_every_n_steps": 1,
-        "linear_hidden_units": [24, 96, 256, 96, 24],
+        "linear_hidden_units": [32, 108, 296, 108, 32],
         "final_layer_activation": "None",
         "batch_norm": True,
         "gradient_clipping_norm": 0.1,
