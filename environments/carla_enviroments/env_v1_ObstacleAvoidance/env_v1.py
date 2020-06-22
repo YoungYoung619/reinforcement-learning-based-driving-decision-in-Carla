@@ -27,6 +27,8 @@ class ObstacleAvoidanceScenario(carla_base):
     def __init__(self):
         try:
             carla_base.__init__(self)
+            self.world = self.client.load_world('Town04')
+            self.world.apply_settings(carla.WorldSettings(no_rendering_mode=base_config.no_render_mode))
         except:
             raise RuntimeError('carla_base init fails...')
         else:
@@ -35,7 +37,7 @@ class ObstacleAvoidanceScenario(carla_base):
                 self.vehicles_pos = np.load(env_v1_config.vehicles_pos_file)['pos']
             else:
                 ## random generate vehicles position
-                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(5, 15))
+                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(27, 27))
 
             if env_v1_config.synchronous_mode:
                 self.start_synchronous_mode()
@@ -44,15 +46,17 @@ class ObstacleAvoidanceScenario(carla_base):
             self.action_space = spaces.Discrete(len(list(env_v1_config.actions.keys())))
 
             # ----
-            self.max_step = 1000
+            self.max_step = 2000
             self.step_counter = 0
 
             # end_point
-            self.end_point_x = 155.
+            self.end_point_x = 50.
 
             # max velocity
-            self.max_longitude_velocity = 6. ## m/s, this is not the speed limitation, only used to normalize the velocity
-            self.max_lateral_velocity = 1.5 ## m/s, same as above
+            self.longitude_velocity_norm = 6. ## m/s, 归一化尺度
+            self.lateral_velocity_norm = 1.5 ## m/s, 归一化尺度
+
+            self.__longitude_norm = env_v1_config.farest_vehicle_consider  ## 纵向方向上的归一化尺度
 
             ##
             self.n_been_catched_record = 0
@@ -62,23 +66,21 @@ class ObstacleAvoidanceScenario(carla_base):
             self.left_obstacle = None
             self.right_obstacle = None
 
-
     def reset(self):
         """reset the world"""
-        self.__wait_env_running(time=0.5)
+        self.wait_env_running(time=0.5)
         world_ops.destroy_all_actors(self.world)
-        self.__wait_env_running(time=0.5)
+        self.wait_env_running(time=0.5)
         self.respawn_vehicles()
-        self.__wait_env_running(time=0.5)
+        self.wait_env_running(time=0.5)
         self.reattach_sensors()
 
         ## Waiting for the vehicles to land on the ground
-        self.__wait_env_running(time=0.5)
+        self.wait_env_running(time=0.5)
 
         # -- reset some var -- #
         self.last_forward_distance = 0.  ## 用以记录上一次状态时的前行距离
         self.__ego_init_forward_pos = self.ego.get_location().x
-        self.__totoal_lane_distance = abs(self.end_point_x - self.__ego_init_forward_pos)
 
         # step
         self.step_counter = 0
@@ -94,14 +96,14 @@ class ObstacleAvoidanceScenario(carla_base):
         # --- conduct action and holding a while--- #
         if self.test_mode:
             action = np.array(env_v1_config.actions[action_idx])
-            action = 0.7 * action + 0.3 * self.last_action
+            action = 0.5 * action + 0.5 * self.last_action
             self.last_action = action
         else:
             action = env_v1_config.actions[action_idx]
 
         self.ego.apply_control(carla.VehicleControl(throttle=action[0],
                                                     steer=action[1], brake=action[2]))
-        self.__wait_env_running(time=env_v1_config.action_holding_time)
+        self.wait_env_running(time=env_v1_config.action_holding_time)
 
         # -- next state -- #
         state = self.get_env_state()
@@ -113,15 +115,14 @@ class ObstacleAvoidanceScenario(carla_base):
         # reward = self.__get_reward_v1(forward_distance=forward_distance, velocity=velocity,
         #                               lateral_pos=lateral_pos)
         # reward = self.__get_reward_v1()
-        reward = self.__get_reward_v4(state=state)
+        reward = self.get_reward_v4(state=state)
         # --reset some var -- #
         # self.last_forward_distance = forward_distance
 
         self.step_counter += 1
 
-        done = self.__is_done()
+        done = self.is_done()
         return state, reward, done, {}
-
 
     def __get_reward_v1(self, **states):
         # reward = 0.
@@ -156,31 +157,31 @@ class ObstacleAvoidanceScenario(carla_base):
             self.n_been_catched_record = self.__get_n_been_catched_so_far()
         return -1. if self.__is_illegal_done() else reward
 
-    def __get_reward_v3(self, **states):
+    def get_reward_v3(self, **states):
         obj_sigma = 10
         lane_sigma = 5
         state = states['state']
 
         lateral_pos = state[0]  ## [-1, 1]
-        lateral_pos_x_pixel = int(lateral_pos * 100)
-        lateral_pos_y_pixel = 512 // 2
+        ego_pos_x_pixel = int(lateral_pos * 100)
+        ego_pos_y_pixel = 512 // 2
 
-        left_line_point = (lateral_pos_y_pixel - 100, 0)
-        right_line_point = (lateral_pos_y_pixel + 100, 0)
+        left_line_point = (512 // 2 - 100, 0)
+        right_line_point = (512 // 2 + 100, 0)
         lane_reward_map = heat_map((512, 512),
                                   [left_line_point, right_line_point],
                                   sigma=lane_sigma, func=gaussian_1d)
 
         left_obstacle = state[4:7]
         if left_obstacle[0]:
-            lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
-            left_pos_x_pixel = int(left_obstacle[2] * 2 * 100 + 256 + lateral_pos_x_pixel)
-            left_pos_y_pixel = int(256 - (left_obstacle[1] * self.__totoal_lane_distance / 150 * 256))
+            # lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
+            left_pos_x_pixel = int(left_obstacle[2] * 2 * 100 + 256 + ego_pos_x_pixel)
+            left_pos_y_pixel = int(256 - (left_obstacle[1] * self.__longitude_norm / self.__longitude_norm * 256))
 
         right_obstacle = state[7:10]
         if right_obstacle[0]:
-            right_pos_x_pixel = int(right_obstacle[2] * 2 * 100 + 256 + lateral_pos_x_pixel)
-            right_pos_y_pixel = int(256 - (right_obstacle[1] * self.__totoal_lane_distance / 150 * 256))
+            right_pos_x_pixel = int(right_obstacle[2] * 2 * 100 + 256 + ego_pos_x_pixel)
+            right_pos_y_pixel = int(256 - (right_obstacle[1] * self.__longitude_norm / self.__longitude_norm * 256))
 
         if left_obstacle[0] and right_obstacle[0]:
             obstacle_reward_map = heat_map((512, 512),
@@ -197,8 +198,8 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             obstacle_reward_map = np.zeros(shape=(512, 512), dtype=np.float32)
 
-        reward_obstacle = - obstacle_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 5.
-        reward_lane = - lane_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 4.
+        reward_obstacle = - obstacle_reward_map[(ego_pos_y_pixel, min(511, 256 + ego_pos_x_pixel))] * 4.
+        reward_lane = - lane_reward_map[(ego_pos_y_pixel, min(511, 256 + ego_pos_x_pixel))] * 3.
 
         reward_exist = 0.
         if not self.__is_illegal_done():
@@ -206,29 +207,31 @@ class ObstacleAvoidanceScenario(carla_base):
 
         reward = reward_exist + reward_obstacle + reward_lane
         # print('reward:', reward_lane)
-        # cv2.imshow('test_r', np.maximum(obstacle_reward_map, lane_reward_map))
+        # cv2.imshow('the reward map of obstacle and lane border', np.maximum(obstacle_reward_map, lane_reward_map))
         return reward
 
-    def __get_reward_v4(self, **states):
-        reward_v3 = self.__get_reward_v3(**states)
-        lane_sigma = 20
+    def get_reward_v4(self, **states):
+        reward_v3 = self.get_reward_v3(**states)
+        lane_sigma = 10
         state = states['state']
 
         lateral_pos = state[0]  ## [-1, 1]
-        lateral_pos_x_pixel = int(lateral_pos * 100)
-        lateral_pos_y_pixel = 512 // 2
+        # print('laterral_pos', lateral_pos)
+        ego_pos_x_pixel = int(lateral_pos * 100)
+        ego_pos_y_pixel = 512 // 2
 
-        left_line_point = (lateral_pos_y_pixel - 60, 0)
-        right_line_point = (lateral_pos_y_pixel + 60, 0)
+        left_line_point = (512 // 2 - 55, 0)
+        right_line_point = (512 // 2 + 55, 0)
         lane_reward_map_pos = heat_map((512, 512),
                                    [left_line_point, right_line_point],
                                    sigma=lane_sigma, func=gaussian_1d)
         ## make the ego drive at the center of one lane
-        reward_lane_pos = lane_reward_map_pos[(lateral_pos_y_pixel, min(511, 256 + lateral_pos_x_pixel))]
-        reward = reward_v3 + 0.3 * reward_lane_pos
-        # print(reward_lane_pos)
-        # cv2.imshow('test_r_pos', lane_reward_map_pos)
+        reward_lane_pos = lane_reward_map_pos[(ego_pos_y_pixel, min(511, 256 + ego_pos_x_pixel))]
+        reward = reward_v3 + reward_lane_pos * 0.3
+        # print('center lane reward:', reward_lane_pos)
+        # cv2.imshow('reward map of center lane', lane_reward_map_pos)
         return reward
+
 
     def __gaussian_1d(self, x, mean, std, max, bias):
         def norm(x, mu, sigma):
@@ -263,17 +266,17 @@ class ObstacleAvoidanceScenario(carla_base):
         lateral = abs(env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0])
         init_lateral_point = (env_v1_config.lateral_pos_limitation[1] + env_v1_config.lateral_pos_limitation[0]) / 2.
         haft_lateral = lateral / 2.
-        # state = [(ego_transform.location.x - self.__ego_init_forward_pos)/self.__totoal_lane_distance,
+        # state = [(ego_transform.location.x - self.__ego_init_forward_pos)/self.__longitude_norm,
         #          (ego_transform.location.y - env_v1_config.lateral_pos_limitation[0])/lateral,
         #          ego_transform.rotation.yaw / 30.,
         #          ego_angular.z / 50.,
-        #          ego_velocity.x / self.max_longitude_velocity,
-        #          ego_velocity.y / self.max_lateral_velocity]
+        #          ego_velocity.x / self.longitude_velocity_norm,
+        #          ego_velocity.y / self.lateral_velocity_norm]
         #          # ego_acc.x, ego_acc.y,
         #          # ego_control.throttle, ego_control.steer, ego_control.brake]
 
         state = [(ego_transform.location.y - init_lateral_point) / haft_lateral,
-                 ego_velocity.y / self.max_lateral_velocity,
+                 ego_velocity.y / self.lateral_velocity_norm,
                  ego_transform.rotation.yaw / 30.,
                  ego_angular.z / 50.]
 
@@ -337,7 +340,7 @@ class ObstacleAvoidanceScenario(carla_base):
             if math.sqrt((left_obstacle_location.x - ego_location.x) ** 2 + (
                     left_obstacle_location.y - ego_location.y) ** 2) <= env_v1_config.farest_vehicle_consider:
                 left_obstacle_location = [1.,  ## 指示有没有左障碍物
-                                          (left_obstacle_location.x - ego_location.x) / self.__totoal_lane_distance,
+                                          (left_obstacle_location.x - ego_location.x) / self.__longitude_norm,
                                           (left_obstacle_location.y - ego_location.y) / lateral]
             else:
                 left_obstacle_location = [0., 0., 0.]  ##
@@ -349,7 +352,7 @@ class ObstacleAvoidanceScenario(carla_base):
             if math.sqrt((right_obstacle_location.x - ego_location.x) ** 2 + (
                     right_obstacle_location.y - ego_location.y) ** 2) <= env_v1_config.farest_vehicle_consider:
                 right_obstacle_location = [1.,
-                                           (right_obstacle_location.x - ego_location.x) / self.__totoal_lane_distance,
+                                           (right_obstacle_location.x - ego_location.x) / self.__longitude_norm,
                                            (right_obstacle_location.y - ego_location.y) / lateral]
             else:
                 right_obstacle_location = [0., 0., 0.]  ## 右边的最近车辆太远，当做没有
@@ -360,16 +363,16 @@ class ObstacleAvoidanceScenario(carla_base):
         ego_velocity = ego.get_velocity()
         if self.left_obstacle:
             left_velocity = self.left_obstacle.get_velocity()
-            left_ego_v_x = (ego_velocity.x - left_velocity.x) / self.max_longitude_velocity
-            left_ego_v_y = (ego_velocity.y - left_velocity.y) / self.max_lateral_velocity
+            left_ego_v_x = (ego_velocity.x - left_velocity.x) / self.longitude_velocity_norm
+            left_ego_v_y = (ego_velocity.y - left_velocity.y) / self.lateral_velocity_norm
         else:
             left_ego_v_x = 0.
             left_ego_v_y = 0.
 
         if self.right_obstacle:
             right_velocity = self.right_obstacle.get_velocity()
-            right_ego_v_x = (ego_velocity.x - right_velocity.x) / self.max_longitude_velocity
-            right_ego_v_y = (ego_velocity.y - right_velocity.y) / self.max_lateral_velocity
+            right_ego_v_x = (ego_velocity.x - right_velocity.x) / self.longitude_velocity_norm
+            right_ego_v_y = (ego_velocity.y - right_velocity.y) / self.lateral_velocity_norm
         else:
             right_ego_v_x = 0.
             right_ego_v_y = 0.
@@ -404,7 +407,7 @@ class ObstacleAvoidanceScenario(carla_base):
 
         if not only_one_vehicle:
             if not env_v1_config.fix_vehicle_pos:
-                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(12, 12))
+                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(27, 27))
 
             obstacles = []
             for idx, vehicle_pos in enumerate(self.vehicles_pos):
@@ -439,7 +442,6 @@ class ObstacleAvoidanceScenario(carla_base):
             self.wait_for_response()
             self.obstacles = []
 
-
     def reattach_sensors(self):
         env_v1_config.collision_sensor_config['attach_to'] = self.ego
         self.collision_sensor = sensor_ops.collision_query(self.world, env_v1_config.collision_sensor_config)
@@ -458,30 +460,25 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             return False
 
-
     def __print_pos(self):
         # logger.info(str(self.ego.get_location()))
         pass
-
 
     def __is_finish_game(self):
         """judge agent whether finish game"""
         location = self.ego.get_location()
         return True if location.x >= self.end_point_x else False
 
-
     def __is_illegal_done(self):
         """ judge whether lane invasion or collision"""
         return self.__lane_invasion() or self.collision_sensor.get()
 
-
-    def __is_done(self):
+    def is_done(self):
         """query whether the game done"""
         max_step = self.step_counter >= self.max_step
         return self.__is_finish_game() or self.__lane_invasion() or self.collision_sensor.get() or max_step
 
-
-    def __wait_env_running(self, time):
+    def wait_env_running(self, time):
         """等待环境跑一段时间
         Args:
             time: sec
@@ -490,7 +487,6 @@ class ObstacleAvoidanceScenario(carla_base):
             self.wait_carla_runing(time)
         else:
             sys_time.sleep(time)
-
 
     def random_action_test_v1(self):
         """ test script, non-syntronic mode
@@ -508,7 +504,7 @@ class ObstacleAvoidanceScenario(carla_base):
         self.ego.apply_control(carla.VehicleControl(throttle=random.uniform(0., 1.),
                                                     steer=random.uniform(-1., 1.), brake=0.))
         sys_time.sleep(0.5)
-        done = self.__is_done()
+        done = self.is_done()
 
         return state, done
 
@@ -533,7 +529,7 @@ class ObstacleAvoidanceScenario(carla_base):
         self.step(action_idx=4)
 
         # ---- action holding ---- #
-        self.__wait_env_running(time=env_v1_config.action_holding_time)
+        self.wait_env_running(time=env_v1_config.action_holding_time)
 
         # ---- get state ---- #
         state = self.get_env_state()
@@ -547,10 +543,10 @@ class ObstacleAvoidanceScenario(carla_base):
 
         # --- reward --- # forward distance, velocity and center pos
         # reward = self.__get_reward_v2()
-        reward = self.__get_reward_v3(state=state)
+        reward = self.get_reward_v4(state=state)
         # logger.info('reward - %f'%(reward))
 
-        done = self.__is_done()
+        done = self.is_done()
 
         self.vis_state_as_img(state)
         return state, done
@@ -559,34 +555,34 @@ class ObstacleAvoidanceScenario(carla_base):
         img = np.zeros(shape=(512, 512, 3), dtype=np.uint8)
 
         lateral_pos = state[0] ## [-1, 1]
-        lateral_pos_x_pixel = int(lateral_pos * 100)
-        lateral_pos_y_pixel = 512 // 2
+        ego_pos_x_pixel = int(lateral_pos * 100)
+        ego_pos_y_pixel = 512 // 2
 
         ## draw lane
-        cv2.line(img, (lateral_pos_y_pixel-100, 0), (lateral_pos_y_pixel-100, 512),
+        cv2.line(img, (ego_pos_y_pixel-100, 0), (ego_pos_y_pixel-100, 512),
                  color=(0, 255, 0), thickness=2)
 
-        cv2.line(img, (lateral_pos_y_pixel + 100, 0), (lateral_pos_y_pixel + 100, 512),
+        cv2.line(img, (ego_pos_y_pixel + 100, 0), (ego_pos_y_pixel + 100, 512),
                  color=(0, 255, 0), thickness=2)
 
 
         ## draw ego vehicle
-        cv2.circle(img, (256 + lateral_pos_x_pixel, lateral_pos_y_pixel), color=(255, 0, 0),
+        cv2.circle(img, (256 + ego_pos_x_pixel, ego_pos_y_pixel), color=(255, 0, 0),
                    thickness=3, radius=10)
 
         ##
         left_obstacle = state[4:7]
         if left_obstacle[0]:
-            lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
-            left_pos_x_pixel = int(left_obstacle[2] * 2 * 100 + 256 + lateral_pos_x_pixel)
-            left_pos_y_pixel = int(256 - (left_obstacle[1] * self.__totoal_lane_distance / 150 * 256))
+            # lateral = env_v1_config.lateral_pos_limitation[1] - env_v1_config.lateral_pos_limitation[0]
+            left_pos_x_pixel = int(left_obstacle[2] * 2 * 100 + 256 + ego_pos_x_pixel)
+            left_pos_y_pixel = int(256 - (left_obstacle[1] * self.__longitude_norm / self.__longitude_norm * 256))
             cv2.circle(img, (left_pos_x_pixel, left_pos_y_pixel), color=(0, 0, 255),
                        thickness=3, radius=10)
 
         right_obstacle = state[7:10]
         if right_obstacle[0]:
-            right_pos_x_pixel = int(right_obstacle[2] * 2 * 100 + 256 + lateral_pos_x_pixel)
-            right_pos_y_pixel = int(256 - (right_obstacle[1] * self.__totoal_lane_distance / 150 * 256))
+            right_pos_x_pixel = int(right_obstacle[2] * 2 * 100 + 256 + ego_pos_x_pixel)
+            right_pos_y_pixel = int(256 - (right_obstacle[1] * self.__longitude_norm / self.__longitude_norm * 256))
 
             cv2.circle(img, (right_pos_x_pixel, right_pos_y_pixel), color=(0, 0, 255),
                        thickness=3, radius=10)
@@ -604,9 +600,9 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             reward_map = np.zeros(shape=(512, 512), dtype=np.uint8)
 
-        cv2.imshow('reward', reward_map)
+        # cv2.imshow('reward', reward_map)
 
-        cv2.imshow('test', img)
+        cv2.imshow('vis the position of ego and obstacles', img)
         cv2.waitKey(1)
 
     def random_action_test_v3(self, throttle, steer):
@@ -627,7 +623,7 @@ class ObstacleAvoidanceScenario(carla_base):
         self.ego.apply_control(carla.VehicleControl(throttle=throttle,
                                                     steer=steer, brake=0.))
         # ---- action holding ---- #
-        self.__wait_env_running(time=env_v1_config.action_holding_time)
+        self.wait_env_running(time=env_v1_config.action_holding_time)
 
         # ---- get state ---- #
         state = self.get_env_state()
@@ -636,7 +632,7 @@ class ObstacleAvoidanceScenario(carla_base):
         reward = self.__get_reward_v1()
         logger.info('reward - %f'%(reward))
 
-        done = self.__is_done()
+        done = self.is_done()
         return state, done
 
     def __get_n_been_catched_so_far(self):
@@ -663,7 +659,7 @@ class ObstacleAvoidanceScenario(carla_base):
 
 if __name__ == '__main__':
 
-    scenario =ObstacleAvoidanceScenario()
+    scenario = ObstacleAvoidanceScenario()
     scenario.reset()
     t = True
     while True:

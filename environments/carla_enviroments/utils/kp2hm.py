@@ -110,11 +110,11 @@ if __name__ == '__main__':
         # aa = heat_map(img_size=(128, 128), points=[[50, 50]], sigma=2)
 
         ## vis
-        x = np.random.randint(0, 127, 5)
-        y = np.random.randint(0, 127, 5)
+        x = np.random.randint(-10, 127, 5)
+        y = np.random.randint(-10, 127, 5)
         # print(x)
         # print(y)
-        aa = heat_map(img_size=(128, 128), points=[[x[0], y[0]], [x[1], y[1]], [x[2], y[2]], [x[3], y[3]], [x[4], y[4]]], sigma=10)
+        aa = heat_map(img_size=(128, 128), points=[[x[0], y[0]], [x[1], y[1]], [x[2], y[2]], [x[3], y[3]], [x[4], y[4]]], sigma=10, func=gaussian_2d)
         cv2.imshow('test', aa)
         cv2.waitKey()
         cv2.destroyAllWindows()

@@ -15,11 +15,9 @@ class carla_base(gym.Env):
     """connect the carla server"""
     def __init__(self):
         try:
-            client = carla.Client('127.0.0.1', 2000)
+            self.client = carla.Client('127.0.0.1', 2000)
             logger.info('carla connecting...')
-            client.set_timeout(2.0)
-            self.world = client.get_world()
-            self.world.apply_settings(carla.WorldSettings(no_rendering_mode=base_config.no_render_mode))
+            self.client.set_timeout(2.0)
         except:
             raise RuntimeError('carla connection fail...')
         else:
