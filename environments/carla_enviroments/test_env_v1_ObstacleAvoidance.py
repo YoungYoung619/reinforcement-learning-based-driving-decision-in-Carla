@@ -24,15 +24,14 @@ hyperparameters = {
         "beta_prioritised_replay": 0.1,
         "incremental_td_error": 1e-8,
         "update_every_n_steps": 1,
-        "linear_hidden_units": [24, 96, 256, 96, 24],
+        "linear_hidden_units": [32, 108, 296, 108, 32],
         "final_layer_activation": "None",
         "batch_norm": True,
         "gradient_clipping_norm": 0.1,
         "learning_iterations": 1,
         "clip_rewards": False}
 
-resume_path = 'C:\my_project\RL-based-decision-making-in-Carla\\results\Models\DDQN with Prioritised Replay\DDQN with Prioritised Replay_1500.model'
-
+resume_path = 'C:\my_project\\reinforcement-learning-based-driving-decision-in-Carla\\results\Models\ObstacleAvoidance-v2\\rolling_score_39.4644.model'
 
 def create_NN(input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):
     """Creates a neural network for the agents to use"""
@@ -74,18 +73,17 @@ def get_action(net, state):
         action_idx = out.argmax(dim=-1).item()
     return action_idx
 
-
 if __name__ == '__main__':
     ## save video
     save_video = True
-    save_to = 'DDQN_1.avi'
+    save_to = 'DDQN_1111.avi'
 
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        VideoWriter = cv2.VideoWriter(save_to, fourcc, int(1./env_v1_config.action_holding_time+0.05), (640, 360))
+        VideoWriter = cv2.VideoWriter(save_to, fourcc, int(1./0.25), (640, 360))
 
     base_config.no_render_mode = False
-    env = gym.make('ObstacleAvoidance-v0')
+    env = gym.make('ObstacleAvoidance-v2')
     env.test()
 
     state = env.reset()
