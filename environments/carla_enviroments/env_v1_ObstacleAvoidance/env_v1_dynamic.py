@@ -26,8 +26,6 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
                                  3:[0.7, -0.1, 0.],
                                  4:[0.7, 0., 0.]}    # small acc
 
-        env_v1_config.action_holding_time = 0.15
-
     def respawn_vehicles(self):
         only_one_vehicle = False
 
