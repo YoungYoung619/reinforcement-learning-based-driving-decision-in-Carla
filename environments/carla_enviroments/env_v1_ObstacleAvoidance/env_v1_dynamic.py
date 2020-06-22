@@ -20,11 +20,11 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
         ObstacleAvoidanceScenario.__init__(self)
         self.init_state = True
 
-        env_v1_config.actions = {0: [0.7, 0.5, 0.],
-                                 1: [0.7, -0.5, 0.],
-                                 2: [0.7, 0.1, 0.],
-                                 3: [0.7, -0.1, 0.],
-                                 4: [0.7, 0., 0.]}  # small acc
+        env_v1_config.actions = {0:[0.7, 0.5, 0.],
+                                 1:[0.7, -0.5, 0.],
+                                 2:[0.7, 0.1, 0.],
+                                 3:[0.7, -0.1, 0.],
+                                 4:[0.7, 0., 0.]}    # small acc
 
     def respawn_vehicles(self):
         only_one_vehicle = False
@@ -118,15 +118,13 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
         if self.init_state:
             self.make_others_autopilot()    ## 等确保自车动了之后，其他车才开始动，不然其他车会走很远一段距离，自车才开始动
             self.init_state = False
-
         return state, reward, done, {}
-
 
     def attach_camera_to_ego(self):
         camera_config = {'data_type': 'sensor.camera.rgb', 'image_size_x': 640,
-                         'image_size_y': 360, 'fov': 110, 'sensor_tick': 0.02,
-                         'transform': carla.Transform(carla.Location(x=-0., y=-0.4, z=1.25)),
-                         'attach_to': self.ego}
+                              'image_size_y': 360, 'fov': 110, 'sensor_tick': 0.02,
+                              'transform': carla.Transform(carla.Location(x=-0., y=-0.4, z=1.25)),
+                              'attach_to': self.ego}
 
         self.camera = sensor_ops.bgr_camera(self.world, camera_config)
 
