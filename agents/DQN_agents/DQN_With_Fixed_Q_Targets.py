@@ -36,7 +36,7 @@ class DQN_With_Fixed_Q_Targets(DQN):
         self.soft_update_of_target_network(self.q_network_local, self.q_network_target,
                                            self.hyperparameters["tau"])  # Update the target network
         tic3 = time.time()
-        print('learn time:%.5f, soft copy:%.5f'%(tic2 - tic1, tic3 - tic2))
+        # print('learn time:%.5f, soft copy:%.5f'%(tic2 - tic1, tic3 - tic2))
 
     def compute_q_values_for_next_states(self, next_states):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
@@ -51,6 +51,22 @@ class DQN_With_Fixed_Q_Targets(DQN):
         self.q_network_local.load_state_dict(q_network_local_dict, strict=True)
         self.q_network_target.load_state_dict(q_network_target_dict, strict=True)
         self.logger.info('load resume model success...')
+
+    def update_learning_rate(self, starting_lr,  optimizer):
+        """Lowers the learning rate according to how close we are to the solution"""
+        # if self.episode_number >= self.total_episode * 3 / 4:
+        #     new_lr = starting_lr / 6.
+        # elif self.episode_number >= self.total_episode / 2:
+        #     new_lr = starting_lr / 3.
+        # else:
+        #     new_lr = starting_lr
+
+        new_lr = starting_lr
+
+        for g in optimizer.param_groups:
+            g['lr'] = new_lr
+
+        self.logger.info("Learning rate {}".format(new_lr))
 
 
 class q_network_2_EYE(nn.Module):

@@ -113,7 +113,7 @@ class ObstacleAvoidanceScenario(carla_base):
         # reward = self.__get_reward_v1(forward_distance=forward_distance, velocity=velocity,
         #                               lateral_pos=lateral_pos)
         # reward = self.__get_reward_v1()
-        reward = self.__get_reward_v3(state=state)
+        reward = self.__get_reward_v4(state=state)
         # --reset some var -- #
         # self.last_forward_distance = forward_distance
 
@@ -197,8 +197,8 @@ class ObstacleAvoidanceScenario(carla_base):
         else:
             obstacle_reward_map = np.zeros(shape=(512, 512), dtype=np.float32)
 
-        reward_obstacle = - obstacle_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 4.
-        reward_lane = - lane_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 3.
+        reward_obstacle = - obstacle_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 5.
+        reward_lane = - lane_reward_map[(min(lateral_pos_y_pixel, 511), min(511, 256 + lateral_pos_x_pixel))] * 4.
 
         reward_exist = 0.
         if not self.__is_illegal_done():
@@ -207,6 +207,27 @@ class ObstacleAvoidanceScenario(carla_base):
         reward = reward_exist + reward_obstacle + reward_lane
         # print('reward:', reward_lane)
         # cv2.imshow('test_r', np.maximum(obstacle_reward_map, lane_reward_map))
+        return reward
+
+    def __get_reward_v4(self, **states):
+        reward_v3 = self.__get_reward_v3(**states)
+        lane_sigma = 20
+        state = states['state']
+
+        lateral_pos = state[0]  ## [-1, 1]
+        lateral_pos_x_pixel = int(lateral_pos * 100)
+        lateral_pos_y_pixel = 512 // 2
+
+        left_line_point = (lateral_pos_y_pixel - 60, 0)
+        right_line_point = (lateral_pos_y_pixel + 60, 0)
+        lane_reward_map_pos = heat_map((512, 512),
+                                   [left_line_point, right_line_point],
+                                   sigma=lane_sigma, func=gaussian_1d)
+        ## make the ego drive at the center of one lane
+        reward_lane_pos = lane_reward_map_pos[(lateral_pos_y_pixel, min(511, 256 + lateral_pos_x_pixel))]
+        reward = reward_v3 + 0.3 * reward_lane_pos
+        # print(reward_lane_pos)
+        # cv2.imshow('test_r_pos', lane_reward_map_pos)
         return reward
 
     def __gaussian_1d(self, x, mean, std, max, bias):
