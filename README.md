@@ -21,7 +21,7 @@ python environments\carla_enviroments\test_env_v1_ObstacleAvoidance.py
 ```
 
 The following animation show the agent behavior in this scenario.  
-![DDQN_PR](pictures/DDQN_PR.gif)
+![DQN_with_fixed_target](pictures/DQN_with_fixed_target.gif)
 
 ## Scenario-II (ObstacleAvoidance-v2)
 A dynamic traffic. Some vehicles are randomly placed in a straight-lane, and are set as autopilot mode. The agent should drive safely without any collision and lane-invasion (solid) behavior.  
