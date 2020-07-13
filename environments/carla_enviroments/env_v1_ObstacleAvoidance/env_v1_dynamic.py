@@ -20,18 +20,18 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
         ObstacleAvoidanceScenario.__init__(self)
         self.init_state = True
 
-        env_v1_config.actions = {0:[0.7, 0.5, 0.],
-                                 1:[0.7, -0.5, 0.],
-                                 2:[0.7, 0.1, 0.],
-                                 3:[0.7, -0.1, 0.],
-                                 4:[0.7, 0., 0.]}    # small acc
+        env_v1_config.actions = {0:[0.6, 0.5, 0.],
+                                 1:[0.6, -0.5, 0.],
+                                 2:[0.6, 0.1, 0.],
+                                 3:[0.6, -0.1, 0.],
+                                 4:[0.6, 0., 0.]}    # small acc
 
     def respawn_vehicles(self):
         only_one_vehicle = False
 
         if not only_one_vehicle:
             if not env_v1_config.fix_vehicle_pos:
-                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(12, 12))
+                self.vehicles_pos = generate_vehicles_pos(n_vehicles=random.randint(23, 23))
 
             obstacles = []
             n_vehicle= len(self.vehicles_pos)
@@ -76,8 +76,11 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
         return self.get_env_state()
 
     def make_others_autopilot(self):
+        throttle = random.uniform(0.2, 0.4)
         for other in self.obstacles:
-            other.set_autopilot(True)
+            # other.set_autopilot(True)
+            other.apply_control(carla.VehicleControl(throttle=throttle,
+                                                    steer=0., brake=0.))
 
     def step(self, action_idx):
         """conduct action in env
@@ -93,12 +96,15 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
         else:
             action = env_v1_config.actions[action_idx]
 
+        self.resume()
+
         self.ego.apply_control(carla.VehicleControl(throttle=action[0],
                                                     steer=action[1], brake=action[2]))
         self.wait_env_running(time=env_v1_config.action_holding_time)
 
         # -- next state -- #
         state = self.get_env_state()
+        self.pause()
 
         # --- reward --- # forward distance, velocity and center pos
         # forward_distance = state[0]
@@ -132,7 +138,7 @@ class ObstacleAvoidanceScenarioDynamic(ObstacleAvoidanceScenario):
 
 if __name__ == '__main__':
 
-    scenario =ObstacleAvoidanceScenarioDynamic()
+    scenario = ObstacleAvoidanceScenarioDynamic()
     scenario.reset()
     t = True
     while True:
