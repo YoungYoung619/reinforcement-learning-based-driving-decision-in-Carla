@@ -1,13 +1,11 @@
 import os
 
 # -------- scenario settings -------- #
-synchronous_mode = False
-
 fix_vehicle_pos = False
 vehicles_pos_file = os.path.join(os.path.dirname(__file__), 'saves/positions/12_vehicle_positions.npz')
 
-lateral_pos_limitation = (11.2, 18.1)
-action_holding_time = 1./20.
+lateral_pos_limitation = (11.4, 17.7)
+action_holding_time = 1./15.    ## 20hz
 
 # -------- sensor settings ----------- #
 collision_sensor_config = {'data_type': 'sensor.other.collision','attach_to': None}
