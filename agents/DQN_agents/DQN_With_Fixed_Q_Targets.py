@@ -5,17 +5,20 @@ import torch.nn as nn
 from agents.Base_Agent import Base_Agent
 from agents.DQN_agents.DQN import DQN
 
-from agents.DQN_agents.base_conv_net.mobilenet_v2 import MobileNetV2
-from nn_builder.pytorch.NN import NN
 from exploration_strategies.Epsilon_Greedy_Exploration import Epsilon_Greedy_Exploration
 from utilities.data_structures.Replay_Buffer import Replay_Buffer
 import torch.optim as optim
 
-import math
 import os
 from environments.carla_enviroments.carla_config import base_config
 
 import time
+
+from agents.DQN_agents.base_conv_net.mobilenet_v2 import MobileNetV2
+from nn_builder.pytorch.NN import NN
+
+from agents.DQN_agents.q_networks.two_eye_q_network import TwoEyesQNetwork
+from agents.DQN_agents.q_networks.single_eye_q_network import SingleEyeQNetwork
 
 class DQN_With_Fixed_Q_Targets(DQN):
     """A DQN agent that uses an older version of the q_network as the target network"""
@@ -30,19 +33,16 @@ class DQN_With_Fixed_Q_Targets(DQN):
 
     def learn(self, experiences=None):
         """Runs a learning iteration for the Q network"""
-        tic1 = time.time()
         super(DQN_With_Fixed_Q_Targets, self).learn(experiences=experiences)
-        tic2 = time.time()
+
         self.soft_update_of_target_network(self.q_network_local, self.q_network_target,
                                            self.hyperparameters["tau"])  # Update the target network
-        tic3 = time.time()
         # print('learn time:%.5f, soft copy:%.5f'%(tic2 - tic1, tic3 - tic2))
 
     def compute_q_values_for_next_states(self, next_states):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
         Q_targets_next = self.q_network_target(next_states).detach().max(1)[0].unsqueeze(1)
         return Q_targets_next
-
 
     def load_resume(self, resume_path):
         save = torch.load(resume_path)
@@ -69,66 +69,30 @@ class DQN_With_Fixed_Q_Targets(DQN):
         self.logger.info("Learning rate {}".format(new_lr))
 
 
-class q_network_2_EYE(nn.Module):
-    def __init__(self, n_action):
-        super(q_network_2_EYE, self).__init__()
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.backbone = MobileNetV2(width_mult=0.35, n_dim=128)
+class DQN_With_Fixed_Q_Targets_SINGLE_EYE(DQN_With_Fixed_Q_Targets):
+    agent_name = "DQN_SINGLE_EYE"
+    def __init__(self, config):
+        Base_Agent.__init__(self, config)
+        base_config.no_render_mode = False  ## must be render mode
 
-        ## action layer
-        action_layer_config = {"linear_hidden_units": [128, 64, 32],
-                                  "final_layer_activation": "None",
-                                  "batch_norm": False}
-        self.action_layer = self.create_NN(256, n_action, hyperparameters=action_layer_config)
+        self.q_network_local = SingleEyeQNetwork(n_action=self.get_action_size(), pretrain=config.backbone_pretrain)
+        self.q_network_target = SingleEyeQNetwork(n_action=self.get_action_size(), pretrain=False)
+        self.q_network_optimizer = optim.SGD(self.q_network_local.parameters(),
+                                             lr=self.hyperparameters["learning_rate"], weight_decay=5e-4)
 
-        self._initialize_weights()
+        self.memory = Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"],
+                                    config.seed)
+        self.exploration_strategy = Epsilon_Greedy_Exploration(config)
 
-    def forward(self, state):
-        tic1 = time.time()
-        left_eye = state[..., :3].transpose(1, 3).transpose(2, 3).contiguous()
-        right_eye = state[..., 3:].transpose(1, 3).transpose(2, 3).contiguous()
-        tic2 = time.time()
-        features_left = self.backbone(left_eye) ## shape is [bs, 256]
-        features_right = self.backbone(right_eye)  ## shape is [bs, 256]
-        tic3 = time.time()
-        features = torch.cat([features_left, features_right], dim=-1)    ## shape is [bs, 512]
-        tic4 = time.time()
-        action_q = self.action_layer(features)
-        # print('transpose:%.5fs, cnn:%.5fs, bp:%.5f'%(tic2 - tic1, tic3 - tic2, tic4 - tic3))
-        return action_q
 
-    def create_NN(self, input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):
-        """Creates a neural network for the agents to use"""
-        default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
-                                          "initialiser": "he", "batch_norm": False,
-                                          "columns_of_data_to_be_embedded": [],
-                                          "embedding_dimensions": [], "y_range": ()}
+        self.copy_model_over(from_model=self.q_network_local, to_model=self.q_network_target)
 
-        for key in default_hyperparameter_choices:
-            if key not in hyperparameters.keys():
-                hyperparameters[key] = default_hyperparameter_choices[key]
+        self.q_network_local.to(self.q_network_local.device)
+        self.q_network_target.to(self.q_network_target.device)
 
-        return NN(input_dim=input_dim, layers_info=hyperparameters["linear_hidden_units"] + [output_dim],
-                  output_activation=hyperparameters["final_layer_activation"],
-                  batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
-                  hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
-                  columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
-                  embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
-                  random_seed=1)
+        if config.resume:
+            self.load_resume(config.resume_path)
 
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                if m.bias is not None:
-                    m.bias.data.zero_()
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-            elif isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.01)
-                m.bias.data.zero_()
 
 class DQN_With_Fixed_Q_Targets_2_EYE(DQN_With_Fixed_Q_Targets):
 
@@ -137,8 +101,8 @@ class DQN_With_Fixed_Q_Targets_2_EYE(DQN_With_Fixed_Q_Targets):
         Base_Agent.__init__(self, config)
         base_config.no_render_mode = False  ## must be render mode
 
-        self.q_network_local = q_network_2_EYE(n_action=self.get_action_size())
-        self.q_network_target = q_network_2_EYE(n_action=self.get_action_size())
+        self.q_network_local = TwoEyesQNetwork(n_action=self.get_action_size())
+        self.q_network_target = TwoEyesQNetwork(n_action=self.get_action_size())
         self.q_network_optimizer = optim.SGD(self.q_network_local.parameters(),
                                              lr=self.hyperparameters["learning_rate"], weight_decay=5e-4)
 
@@ -146,30 +110,12 @@ class DQN_With_Fixed_Q_Targets_2_EYE(DQN_With_Fixed_Q_Targets):
                                     config.seed)
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
 
-        if config.backbone_pretrain:
-            self.load_pretrain()
 
         self.copy_model_over(from_model=self.q_network_local, to_model=self.q_network_target)
 
         self.q_network_local.to(self.q_network_local.device)
         self.q_network_target.to(self.q_network_target.device)
 
-    def load_pretrain(self):
-        pretrain_model_path = os.path.join(os.path.dirname(__file__), 'base_conv_net/pretrain/mobilenetv2_0.35-b2e15951.pth')
-        net_dict = self.q_network_local.state_dict()
-        if not torch.cuda.is_available():
-            pretrain_dict = torch.load(pretrain_model_path, map_location='cpu')
-        else:
-            pretrain_dict = torch.load(pretrain_model_path)
-        # print(net_dict.keys())
-        # print(pretrain_dict.keys())
-
-        load_dict = {('backbone.' + k): v for k, v in pretrain_dict.items() if
-                     ('backbone.' + k) in net_dict}
-        net_dict.update(load_dict)
-        self.q_network_local.load_state_dict(net_dict, strict=True)
-        print(f'load keys:{load_dict.keys()}')
-        self.logger.info(f'load keys:{load_dict.keys()}')
 
     def update_learning_rate(self, starting_lr,  optimizer):
         """Lowers the learning rate according to how close we are to the solution"""
