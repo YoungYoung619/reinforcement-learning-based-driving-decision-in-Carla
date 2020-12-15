@@ -75,15 +75,16 @@ class DQN_With_Fixed_Q_Targets_SINGLE_EYE(DQN_With_Fixed_Q_Targets):
         Base_Agent.__init__(self, config)
         base_config.no_render_mode = False  ## must be render mode
 
-        self.q_network_local = SingleEyeQNetwork(n_action=self.get_action_size(), pretrain=config.backbone_pretrain)
-        self.q_network_target = SingleEyeQNetwork(n_action=self.get_action_size(), pretrain=False)
+        self.q_network_local = SingleEyeQNetwork(n_action=self.get_action_size(), pretrain=config.backbone_pretrain,
+                                                 bn=self.hyperparameters["batch_norm"])
+        self.q_network_target = SingleEyeQNetwork(n_action=self.get_action_size(), pretrain=False,
+                                                  bn=self.hyperparameters["batch_norm"])
         self.q_network_optimizer = optim.SGD(self.q_network_local.parameters(),
                                              lr=self.hyperparameters["learning_rate"], weight_decay=5e-4)
 
         self.memory = Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"],
                                     config.seed)
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
-
 
         self.copy_model_over(from_model=self.q_network_local, to_model=self.q_network_target)
 
